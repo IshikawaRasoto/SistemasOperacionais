@@ -1,6 +1,7 @@
 package hardware;
 
 import modelo.TCB;
+import simulador.Relogio;
 
 import java.util.ArrayList;
 
@@ -13,7 +14,7 @@ public class Processador {
         for (int i = 0; i < numeroDeNucleos; i++) {
             nucleos.add(new CPU(quantum));
         }
-        this.relogio = new Relogio();
+        this.relogio = Relogio.getInstancia();
     }
 
     public boolean haNucleoOcioso() {

@@ -1,6 +1,5 @@
 package modelo;
 
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 /*
@@ -10,23 +9,16 @@ import java.util.regex.Pattern;
 
 public class Tarefa {
     private String id;
-    private String corHex;
+    private int cor;
     private int instanteChegada;
     private int duracaoTotal;
     private int prioridade;
 
-    private static final Pattern HEX_RGB = Pattern.compile("^#[0-9A-Fa-f]{6}$");
-
-    public Tarefa (String id, String corHex, int instanteChegada, int duracaoTotal, int prioridade){
+    public Tarefa (String id, int cor, int instanteChegada, int duracaoTotal, int prioridade){
         if (id == null || id.isBlank()){
             throw new IllegalArgumentException("id Tarefa não pode ser vazio");
         }
         this.id = id.trim();
-
-        if (corHex == null || !HEX_RGB.matcher(corHex).matches()){
-            throw new IllegalArgumentException("Cor inválida");
-        }
-        this.corHex = corHex.toUpperCase();
 
         if(instanteChegada < 0){
             throw new IllegalArgumentException("Instante de chegada negativo");
@@ -52,8 +44,8 @@ public class Tarefa {
         return id;
     }
 
-    public String getCorHex(){
-        return corHex;
+    public int getCor(){
+        return cor;
     }
 
     public int getInstanteChegada(){

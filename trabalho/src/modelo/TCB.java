@@ -1,10 +1,12 @@
 package modelo;
-import modelo.Tarefa;
+
 import modelo.EstadoTarefa;
 
-public class TCB {
 
-    private Tarefa tarefa;
+import simulador.Relogio;
+
+public class TCB {
+    Tarefa tarefa;
     private EstadoTarefa estadoTarefa;
     private int restante = 0;
     private int tickEntradaFilaPronta = 0;
@@ -13,33 +15,44 @@ public class TCB {
     private int inicioFatiaAtual = -1;
     private int esperaAcumulada = 0;
 
+    private final Relogio relogio = Relogio.getInstancia();
+
     public TCB(Tarefa tarefa) {
         this.tarefa = tarefa;
         this.estadoTarefa = EstadoTarefa.NOVA;
         this.restante = tarefa.getDuracaoTotal();
+        this.tickEntradaFilaPronta = relogio.getTickAtual();
     }
 
-    public void entrarFilaPronta(int tickAtual){
+    public void entrarFilaPronta(){
         this.estadoTarefa = EstadoTarefa.PRONTA;
-        this.tickEntradaFilaPronta = tickAtual;
+        this.tickEntradaFilaPronta = relogio.getTickAtual();
     }
 
-    public void entrarNoProcessador(int tickAtual){
+    public void entrarNoProcessador(){
         this.estadoTarefa = EstadoTarefa.EXECUTANDO;
-        this.tickPrimeiraResposta = tickAtual;
-        this.inicioFatiaAtual = tickAtual;
+        this.tickPrimeiraResposta = relogio.getTickAtual();
+        this.inicioFatiaAtual = relogio.getTickAtual();
     }
 
-    public void sairDoProcessador(int tickAtual){
+    public void sairDoProcessador(){
         this.estadoTarefa = EstadoTarefa.PRONTA;
-        this.inicioFatiaAtual = tickAtual;
-        this.esperaAcumulada = tickAtual;
-        this.tickEntradaFilaPronta = tickAtual;
+        this.inicioFatiaAtual = relogio.getTickAtual();
+        this.esperaAcumulada = relogio.getTickAtual();
+        this.tickEntradaFilaPronta = relogio.getTickAtual();
     }
 
-    public void interromperTarefa(int tickAtual){
+    public void interromperTarefa(){
         this.estadoTarefa = EstadoTarefa.BLOQUEADA;
-        this.inicioFatiaAtual = tickAtual;
+        this.inicioFatiaAtual = relogio.getTickAtual();
+    }
+
+    public void decrementarRestante(){
+        this.restante--;
+        if (this.restante == 0){
+            this.estadoTarefa = EstadoTarefa.FINALIZADA;
+            this.tickTermino = relogio.getTickAtual();
+        }
     }
 
     // Setters
