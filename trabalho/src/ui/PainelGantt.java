@@ -182,11 +182,13 @@ public class PainelGantt extends JPanel {
         }
 
         // Linha vermelha do tick atual (clampeada)
+        /*
         g2.setColor(Color.RED);
         int xTick = margemEsq + tickAtual * tickLargura;
         xTick = Math.min(xTick, largura - margemDir);
         g2.drawLine(xTick, margemTop - 10, xTick, yEixo);
         g2.drawString("Tick: " + tickAtual, Math.min(largura - 120, xTick + 10), yEixo + 25);
+         */
     }
 
     /**

@@ -87,7 +87,11 @@ public class SistemaOperacional {
 
     }
 
-    private void criarTarefas() {
+    public void executarProcessos(){
+        processador.executarProcessos();
+    }
+
+    public void criarTarefas() {
         // Implementar a criacao de tarefas conforme o tempo do relogio
         // Se a tarefa for criada, retira da lista de tarefas a serem criadas.
 
@@ -109,7 +113,7 @@ public class SistemaOperacional {
         Terminal.printaListaTarefa(tarefasRemovidas);
     }
 
-    private void verificarTarefasProcessandoEEscalonar(){
+    public void verificarTarefasProcessandoEEscalonar(){
 
         Terminal.println("--- Verificando tarefas em execucao e escalonando ---");
         Terminal.println("Lista de prontos antes do escalonamento: ");

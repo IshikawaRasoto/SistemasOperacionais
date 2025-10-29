@@ -87,16 +87,20 @@ public class SimuladorUIControlador {
     // ---------------------------------------------------------
     public void executarTick() {
         if (sistema == null) return;
-        sistema.execTick();
+        sistema.criarTarefas();
+        sistema.verificarTarefasProcessandoEEscalonar();
         atualizarUI();
+        sistema.executarProcessos();
         relogio.tick();
     }
 
     public void executarAteFim() {
         if (sistema == null) return;
         while (!sistema.terminouTodasTarefas()) {
-            sistema.execTick();
+            sistema.criarTarefas();
+            sistema.verificarTarefasProcessandoEEscalonar();
             atualizarUI();
+            sistema.executarProcessos();
             relogio.tick();
         }
     }
