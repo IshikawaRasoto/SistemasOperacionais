@@ -1,16 +1,15 @@
 package modelo;
 
-import modelo.EstadoTarefa;
-
 
 import simulador.Relogio;
 
 public class TCB {
-    Tarefa tarefa;
+    public Tarefa tarefa;
     private EstadoTarefa estadoTarefa;
     private int restante = 0;
+    private int quantumUsado = 0;
     private int tickEntradaFilaPronta = 0;
-    private int tickPrimeiraResposta = -1;
+    private int tickEntradaProcessador = -1;
     private int tickTermino = -1;
     private int inicioFatiaAtual = -1;
     private int esperaAcumulada = 0;
@@ -19,8 +18,9 @@ public class TCB {
 
     public TCB(Tarefa tarefa) {
         this.tarefa = tarefa;
-        this.estadoTarefa = EstadoTarefa.NOVA;
+        this.estadoTarefa = EstadoTarefa.PRONTA;
         this.restante = tarefa.getDuracaoTotal();
+        this.quantumUsado = 0;
         this.tickEntradaFilaPronta = relogio.getTickAtual();
     }
 
@@ -31,11 +31,14 @@ public class TCB {
 
     public void entrarNoProcessador(){
         this.estadoTarefa = EstadoTarefa.EXECUTANDO;
-        this.tickPrimeiraResposta = relogio.getTickAtual();
+        this.tickEntradaProcessador = relogio.getTickAtual();
         this.inicioFatiaAtual = relogio.getTickAtual();
     }
 
     public void sairDoProcessador(){
+        if(this.estadoTarefa == EstadoTarefa.FINALIZADA){
+            return;
+        }
         this.estadoTarefa = EstadoTarefa.PRONTA;
         this.inicioFatiaAtual = relogio.getTickAtual();
         this.esperaAcumulada = relogio.getTickAtual();
@@ -47,8 +50,9 @@ public class TCB {
         this.inicioFatiaAtual = relogio.getTickAtual();
     }
 
-    public void decrementarRestante(){
+    public void executarTick(){
         this.restante--;
+        this.quantumUsado++;
         if (this.restante == 0){
             this.estadoTarefa = EstadoTarefa.FINALIZADA;
             this.tickTermino = relogio.getTickAtual();
@@ -81,12 +85,16 @@ public class TCB {
         return restante;
     }
 
+    public int getQuantumUsado() {
+        return quantumUsado;
+    }
+
     public int getTickEntradaFilaPronta() {
         return tickEntradaFilaPronta;
     }
 
-    public int getTickPrimeiraResposta() {
-        return tickPrimeiraResposta;
+    public int getTickEntradaProcessador() {
+        return tickEntradaProcessador;
     }
 
     public int getTickTermino() {

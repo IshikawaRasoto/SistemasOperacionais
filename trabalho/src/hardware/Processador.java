@@ -6,15 +6,13 @@ import simulador.Relogio;
 import java.util.ArrayList;
 
 public class Processador {
-    ArrayList<CPU> nucleos;
-    Relogio relogio;
+    public ArrayList<CPU> nucleos;
 
-    public Processador(int numeroDeNucleos, int quantum) {
+    public Processador(int numeroDeNucleos) {
         this.nucleos = new ArrayList<>();
         for (int i = 0; i < numeroDeNucleos; i++) {
-            nucleos.add(new CPU(quantum));
+            nucleos.add(new CPU());
         }
-        this.relogio = Relogio.getInstancia();
     }
 
     public boolean haNucleoOcioso() {
@@ -26,21 +24,13 @@ public class Processador {
         return false;
     }
 
-    public int executarTarefa(TCB tcb) {
+    public void executarProcessos(){
         for (CPU cpu : nucleos) {
-            if (cpu.getEstado() == EstadoCPU.OCIOSA) {
-                cpu.novoProcesso(tcb, relogio.getTickAtual());
-                return nucleos.indexOf(cpu);
-            }
+            cpu.executaTarefa();
         }
-        return -1; // Nenhum núcleo disponível
     }
 
     public ArrayList<CPU> getNucleos() {
         return nucleos;
-    }
-
-    public Relogio getRelogio() {
-        return relogio;
     }
 }

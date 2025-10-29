@@ -10,20 +10,21 @@ import java.util.regex.Pattern;
 public class Tarefa {
     private String id;
     private int cor;
-    private int instanteChegada;
+    private int inicio;
     private int duracaoTotal;
     private int prioridade;
+    // Fica pendente para Defesa B a implementacao da lista de eventos
 
-    public Tarefa (String id, int cor, int instanteChegada, int duracaoTotal, int prioridade){
+    public Tarefa (String id, int cor, int inicio, int duracaoTotal, int prioridade){
         if (id == null || id.isBlank()){
             throw new IllegalArgumentException("id Tarefa não pode ser vazio");
         }
         this.id = id.trim();
 
-        if(instanteChegada < 0){
+        if(inicio < 0){
             throw new IllegalArgumentException("Instante de chegada negativo");
         }
-        this.instanteChegada = instanteChegada;
+        this.inicio = inicio;
 
         if(duracaoTotal <= 0 ){
             throw new IllegalArgumentException("Duracao total deve ser maior que zero");
@@ -37,7 +38,7 @@ public class Tarefa {
     }
 
     public String resumo(){
-        return "%s [chegada=%d, duracao=%d, prioridade=%d]".formatted(id, instanteChegada, duracaoTotal, prioridade);
+        return "%s [chegada=%d, duracao=%d, prioridade=%d]".formatted(id, inicio, duracaoTotal, prioridade);
     }
 
     public String getId(){
@@ -48,8 +49,8 @@ public class Tarefa {
         return cor;
     }
 
-    public int getInstanteChegada(){
-        return instanteChegada;
+    public int getInicio(){
+        return inicio;
     }
 
     public int getDuracaoTotal(){
