@@ -25,7 +25,7 @@ public class SistemaOperacional {
     private Interrupcoes interrupcoesHabilitadas = null;
     private String algoritmoEscalonador = "";
     private int quantum = 0;
-    private final ArrayList<Tarefa> tarefasParaCriar; // Lista das tarefas que devem ser criadas ao longo da execucao da simulacao.
+    private ArrayList<Tarefa> tarefasParaCriar; // Lista das tarefas que devem ser criadas ao longo da execucao da simulacao.
 
     // Instancias
     private Escalonador escalonador;
@@ -165,6 +165,18 @@ public class SistemaOperacional {
             }
         }
         return true;
+    }
+
+    private ArrayList<TCB> converteFilaParaLista(Queue<TCB> fila) {
+        return new ArrayList<>(fila);
+    }
+
+    public ArrayList<TCB> getListaTCBs() {
+        return converteFilaParaLista(listaTCBs);
+    }
+
+    public int getTickAtual() {
+        return relogio.getTickAtual();
     }
 }
 

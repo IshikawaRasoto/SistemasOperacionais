@@ -1,9 +1,7 @@
-import simulador.Simulador;
+import ui.MainUI;
 
 public class Main {
     public static void main(String[] args) {
-        String caminhoDoArquivoDeConfiguracao = "config.txt";
-        Simulador simulador = new Simulador(caminhoDoArquivoDeConfiguracao);
-        simulador.executar();
+        javax.swing.SwingUtilities.invokeLater(MainUI::new);
     }
 }

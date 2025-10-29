@@ -21,6 +21,8 @@ public class Tarefa {
         }
         this.id = id.trim();
 
+        this.cor = cor;
+
         if(inicio < 0){
             throw new IllegalArgumentException("Instante de chegada negativo");
         }

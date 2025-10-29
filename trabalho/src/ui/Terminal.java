@@ -14,7 +14,7 @@ public class Terminal {
 
     private static final boolean verbose = false;
     private static final boolean debug = false;
-    private static final boolean resume = true;
+    private static final boolean resume = false;
 
     static public void printaTarefa(Tarefa tarefa){
         if (!verbose) return;
