@@ -51,7 +51,9 @@ public class TCB {
     }
 
     public void executarTick(){
-        this.restante--;
+        if(this.restante > 0){
+            this.restante--;
+        }
         this.quantumUsado++;
         if (this.restante == 0){
             this.estadoTarefa = EstadoTarefa.FINALIZADA;
