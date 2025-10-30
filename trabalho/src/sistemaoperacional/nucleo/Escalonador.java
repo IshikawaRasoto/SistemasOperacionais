@@ -56,8 +56,11 @@ public class Escalonador {
         else if (nomeEscalonador.equals("SRTF")){
             algoritmoEscolhido = AlgoritmosEscalonamento.SRTF;
         }
-        else if (nomeEscalonador.equals("PRIORIDADE_PREEMPTIVO")){
+        else if (nomeEscalonador.equals("PRIORIDADE_PREEMPTIVO") || nomeEscalonador.equals("PRIOP")){
             algoritmoEscolhido = AlgoritmosEscalonamento.PRIORIDADE_PREEMPTIVO;
+        }
+        else{
+            System.out.println("Algoritmo de escalonamento desconhecido.");
         }
     }
 
