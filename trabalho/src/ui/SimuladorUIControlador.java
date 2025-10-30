@@ -104,6 +104,7 @@ public class SimuladorUIControlador {
             sistema.executarProcessos();
             relogio.tick();
         }
+        atualizarUI();
     }
 
     // ---------------------------------------------------------
