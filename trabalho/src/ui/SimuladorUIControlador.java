@@ -91,6 +91,7 @@ public class SimuladorUIControlador {
         sistema.verificarTarefasProcessandoEEscalonar();
         atualizarUI();
         sistema.executarProcessos();
+        atualizarTabela();
         relogio.tick();
     }
 
@@ -124,6 +125,21 @@ public class SimuladorUIControlador {
 
         ui.atualizarTabela(dados);
         ui.getPainelGantt().atualizarGantt(lista, sistema.getTickAtual());
+    }
+
+    private void atualizarTabela() {
+        ArrayList<TCB> lista = sistema != null ? sistema.getListaTCBs() : new ArrayList<>();
+        Object[][] dados = new Object[lista.size()][6];
+        for (int i = 0; i < lista.size(); i++) {
+            TCB t = lista.get(i);
+            dados[i][0] = t.getTarefa().getId();
+            dados[i][1] = t.getTarefa().getInicio();
+            dados[i][2] = t.getTarefa().getDuracaoTotal();
+            dados[i][3] = t.getTarefa().getPrioridade();
+            dados[i][4] = t.getEstadoTarefa();
+            dados[i][5] = t.getRestante();
+        }
+        ui.atualizarTabela(dados);
     }
 
     private void atualizarTabelaInicial() {
