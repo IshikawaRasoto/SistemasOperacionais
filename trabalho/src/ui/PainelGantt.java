@@ -203,17 +203,21 @@ public class PainelGantt extends JPanel {
     /**
      * Exporta o gráfico de Gantt atual como uma imagem PNG.
      */
-    public void exportarComoPNG(String caminho) {
+    public void exportarComoPNG(File destino) {
         try {
             BufferedImage image = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
             Graphics2D g2 = image.createGraphics();
             paint(g2);
             g2.dispose();
-            ImageIO.write(image, "png", new File(caminho));
-            JOptionPane.showMessageDialog(this, "Imagem exportada com sucesso:\n" + caminho);
+            ImageIO.write(image, "png", destino);
+            JOptionPane.showMessageDialog(this, "Imagem exportada com sucesso:\n" + destino);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Erro ao exportar imagem:\n" + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
+    }
+
+    public void exportarComoPNG(String caminho) {
+        exportarComoPNG(new File(caminho));
     }
 }

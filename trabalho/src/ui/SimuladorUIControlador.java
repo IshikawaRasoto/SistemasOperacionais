@@ -6,6 +6,7 @@ import simulador.Relogio;
 import sistemaoperacional.SistemaOperacional;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.*;
 import java.util.ArrayList;
 
@@ -184,6 +185,37 @@ public class SimuladorUIControlador {
     // Exportação do gráfico de Gantt
     // ---------------------------------------------------------
     public void exportarGanttComoImagem() {
-        ui.getPainelGantt().exportarComoPNG("gantt_resultado.png");
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Salvar gráfico de Gantt como PNG");
+        chooser.setFileFilter(new FileNameExtensionFilter("Imagem PNG (*.png)", "png"));
+        chooser.setAcceptAllFileFilterUsed(false);
+
+        // nome sugerido
+        chooser.setSelectedFile(new File("gantt_resultado.png"));
+
+        int res = chooser.showSaveDialog(null);
+        if (res != JFileChooser.APPROVE_OPTION) return;
+
+        File destino = chooser.getSelectedFile();
+
+        // garante extensão .png
+        String name = destino.getName().toLowerCase();
+        if (!name.endsWith(".png")) {
+            destino = new File(destino.getParentFile(), destino.getName() + ".png");
+        }
+
+        // confirma overwrite
+        if (destino.exists()) {
+            int op = JOptionPane.showConfirmDialog(
+                    null,
+                    "O arquivo já existe.\nDeseja sobrescrever?\n\n" + destino.getAbsolutePath(),
+                    "Confirmar sobrescrita",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+            if (op != JOptionPane.YES_OPTION) return;
+        }
+
+        ui.getPainelGantt().exportarComoPNG(destino);
     }
 }
