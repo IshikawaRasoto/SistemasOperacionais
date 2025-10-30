@@ -70,7 +70,15 @@ public class SimuladorUIControlador {
                             "\nQuantum: " + quantum +
                             "\nTarefas carregadas: " + tarefas.size());
 
+            // sincroniza UI de seleção
+            ui.setAlgoritmoNaUI(algoritmo);
+            ui.setQuantumNaUI(quantum);
+
+            // status visível (algoritmo carregado e quantum)
+            ui.setAlgoritmoStatus(algoritmo, quantum);
+
             atualizarTabelaInicial();
+            ui.getPainelGantt().clear();
 
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null,
@@ -80,6 +88,39 @@ public class SimuladorUIControlador {
         }
     }
 
+    public void carregarExemploFIFO() {
+        if (executando) {
+            JOptionPane.showMessageDialog(null, "Finalize a simulação atual antes de carregar um exemplo.");
+            return;
+        }
+
+        tarefas.clear();
+
+        // define algoritmo e quantum do exemplo
+        this.algoritmo = "FIFO";
+        this.quantum = 2; // ajuste se quiser
+
+        tarefas.add(new Tarefa("t01", 0, 0, 5, 3));
+        tarefas.add(new Tarefa("t02", 1, 0, 3, 2));
+        tarefas.add(new Tarefa("t03", 2, 3, 6, 4));
+        tarefas.add(new Tarefa("t04", 3, 3, 2, 9));
+        tarefas.add(new Tarefa("t05", 4, 4, 3, 1));
+
+
+        // sincroniza os campos visuais
+        ui.setAlgoritmoNaUI(this.algoritmo);
+        ui.setQuantumNaUI(this.quantum);
+        ui.setAlgoritmoStatus(this.algoritmo, this.quantum);
+
+
+        // limpa o Gantt para novo cenário
+        ui.getPainelGantt().clear();
+
+        // preenche a tabela com o snapshot "apenasTarefas"
+        atualizarTabelaInicial();
+
+        JOptionPane.showMessageDialog(null, "Exemplo FIFO carregado com sucesso!\nQuantum: " + this.quantum + "\nTarefas: " + this.tarefas.size());
+    }
 
     public void iniciarSimulacao(String algoritmoUI, int quantumUI) {
         if(executando) return;
@@ -101,6 +142,7 @@ public class SimuladorUIControlador {
         sistema = null;
         executando = false;
         ui.setEstadoSO(false);
+        ui.clearAlgoritmoStatus();
 
         ui.getPainelGantt().clear();
         atualizarTabela();

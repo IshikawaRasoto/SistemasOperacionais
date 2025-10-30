@@ -12,8 +12,8 @@
 
             - Atualmente, os algoritmos implementados sao:
                 - FIFO (First In, First Out)
-                - TODO SRTF (Shortest Remaining Time First)
-                - TODO PRIORIDADE_PREEMPTIVO (Prioridade Preemptivo)
+                - SRTF (Shortest Remaining Time First)
+                - PRIORIDADE_PREEMPTIVO (Prioridade Preemptivo)
 
             - Os parametros estao todos contido na tarefa atual, fila de prontos, alem de voce poder visualizar
               o quantum do sistema via variavel interna quantum.

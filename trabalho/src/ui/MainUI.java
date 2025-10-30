@@ -10,10 +10,12 @@ public class MainUI extends JFrame {
     private final SimuladorUIControlador controlador;
     private final JComboBox<String> algoritmoCombo;
     private final JSpinner quantumSpinner;
-    private final JButton carregarButton, startStopButton, tickButton, runButton, exportarButton;
+    private final JButton carregarButton, carregarExemploButton, startStopButton, tickButton, runButton, exportarButton;
     private final JTable tabelaTarefas;
     private final PainelGantt painelGantt;
     private final JLabel statusSoLabel;
+    private final JLabel statusAlgLabel;
+    private final JLabel statusQuantumLabel;
 
     public MainUI() {
         super("Simulador de Escalonamento de Tarefas - Projeto A");
@@ -32,6 +34,7 @@ public class MainUI extends JFrame {
         algoritmoCombo = new JComboBox<>(new String[]{"FIFO", "SRTF", "PRIORIDADE_PREEMPTIVO"});
         quantumSpinner = new JSpinner(new SpinnerNumberModel(2, 1, 100, 1));
         carregarButton = new JButton("Carregar Arquivo");
+        carregarExemploButton = new JButton("Carregar Exemplo"); // << novo
         startStopButton = new JButton("Iniciar Simulação"); // Depois vira o botao de finalizar simulacao
 
         // Inidicador de execucao do SO
@@ -39,14 +42,25 @@ public class MainUI extends JFrame {
         statusSoLabel.setForeground(new Color(200, 0, 0)); // vermelho quando parado
         statusSoLabel.setFont(statusSoLabel.getFont().deriveFont(Font.BOLD, 13f));
 
+        statusAlgLabel = new JLabel("-");
+        statusQuantumLabel = new JLabel("-");
+
         //configPanel.add(new JLabel("Algoritmo:"));
         //configPanel.add(algoritmoCombo);
         //configPanel.add(new JLabel("Quantum:"));
         //configPanel.add(quantumSpinner);
         configPanel.add(carregarButton);
+        configPanel.add(carregarExemploButton);
         configPanel.add(startStopButton);
         configPanel.add(new JLabel("SO:"));
         configPanel.add(statusSoLabel);
+
+        configPanel.add(Box.createHorizontalStrut(20));
+        configPanel.add(new JLabel("Algoritmo carregado:"));
+        configPanel.add(statusAlgLabel);
+        configPanel.add(Box.createHorizontalStrut(8));
+        configPanel.add(new JLabel("Quantum:"));
+        configPanel.add(statusQuantumLabel);
 
         add(configPanel, BorderLayout.NORTH);
 
@@ -83,6 +97,7 @@ public class MainUI extends JFrame {
 
         // Ações dos botões
         carregarButton.addActionListener(e -> escolherArquivoConfiguracao());
+        carregarExemploButton.addActionListener(e -> controlador.carregarExemploFIFO());
         startStopButton.addActionListener(e -> {
             if (!controlador.isExecutando()) {
                 controlador.iniciarSimulacao(
@@ -148,5 +163,23 @@ public class MainUI extends JFrame {
             tickButton.setEnabled(false);
             runButton.setEnabled(false);
         }
+    }
+
+    // setters auxiliares para sincronizar os campos de seleção
+    public void setAlgoritmoNaUI(String algoritmo) {
+        algoritmoCombo.setSelectedItem(algoritmo);
+    }
+    public void setQuantumNaUI(int q) {
+        quantumSpinner.setValue(q);
+    }
+
+    // NOVOS: controlar a exibição do algoritmo/quantum carregados
+    public void setAlgoritmoStatus(String algoritmo, Integer quantum) {
+        statusAlgLabel.setText(algoritmo != null ? algoritmo : "-");
+        statusQuantumLabel.setText(quantum != null ? String.valueOf(quantum) : "-");
+    }
+    public void clearAlgoritmoStatus() {
+        statusAlgLabel.setText("-");
+        statusQuantumLabel.setText("-");
     }
 }
