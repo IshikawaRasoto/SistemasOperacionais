@@ -12,7 +12,7 @@ import java.util.LinkedList;
 
 public class Terminal {
 
-    private static final boolean verbose = false;
+    private static final boolean verbose = true;
     private static final boolean debug = false;
     private static final boolean resume = false;
 

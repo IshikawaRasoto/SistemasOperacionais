@@ -10,9 +10,10 @@ public class MainUI extends JFrame {
     private final SimuladorUIControlador controlador;
     private final JComboBox<String> algoritmoCombo;
     private final JSpinner quantumSpinner;
-    private final JButton carregarButton, iniciarButton, tickButton, runButton, exportarButton;
+    private final JButton carregarButton, startStopButton, tickButton, runButton, exportarButton;
     private final JTable tabelaTarefas;
     private final PainelGantt painelGantt;
+    private final JLabel statusSoLabel;
 
     public MainUI() {
         super("Simulador de Escalonamento de Tarefas - Projeto A");
@@ -31,14 +32,21 @@ public class MainUI extends JFrame {
         algoritmoCombo = new JComboBox<>(new String[]{"FIFO", "SRTF", "PRIORIDADE_PREEMPTIVO"});
         quantumSpinner = new JSpinner(new SpinnerNumberModel(2, 1, 100, 1));
         carregarButton = new JButton("Carregar Arquivo");
-        iniciarButton = new JButton("Iniciar Simulação");
+        startStopButton = new JButton("Iniciar Simulação"); // Depois vira o botao de finalizar simulacao
+
+        // Inidicador de execucao do SO
+        statusSoLabel = new JLabel("● Parado");
+        statusSoLabel.setForeground(new Color(200, 0, 0)); // vermelho quando parado
+        statusSoLabel.setFont(statusSoLabel.getFont().deriveFont(Font.BOLD, 13f));
 
         //configPanel.add(new JLabel("Algoritmo:"));
         //configPanel.add(algoritmoCombo);
         //configPanel.add(new JLabel("Quantum:"));
         //configPanel.add(quantumSpinner);
         configPanel.add(carregarButton);
-        configPanel.add(iniciarButton);
+        configPanel.add(startStopButton);
+        configPanel.add(new JLabel("SO:"));
+        configPanel.add(statusSoLabel);
 
         add(configPanel, BorderLayout.NORTH);
 
@@ -75,14 +83,21 @@ public class MainUI extends JFrame {
 
         // Ações dos botões
         carregarButton.addActionListener(e -> escolherArquivoConfiguracao());
-        iniciarButton.addActionListener(e -> controlador.iniciarSimulacao(
-                (String) algoritmoCombo.getSelectedItem(),
-                (Integer) quantumSpinner.getValue()
-        ));
+        startStopButton.addActionListener(e -> {
+            if (!controlador.isExecutando()) {
+                controlador.iniciarSimulacao(
+                        (String) algoritmoCombo.getSelectedItem(),
+                        (Integer) quantumSpinner.getValue()
+                );
+            } else {
+                controlador.finalizarSimulacao();
+            }
+        });
         tickButton.addActionListener(e -> controlador.executarTick());
         runButton.addActionListener(e -> controlador.executarAteFim());
         exportarButton.addActionListener(e -> controlador.exportarGanttComoImagem());
 
+        setEstadoSO(false);
         setVisible(true);
     }
 
@@ -108,6 +123,30 @@ public class MainUI extends JFrame {
         model.setRowCount(0);
         for (Object[] linha : dados) {
             model.addRow(linha);
+        }
+    }
+
+    public void setEstadoSO(boolean executando) {
+        if (executando) {
+            statusSoLabel.setText("● Executando");
+            statusSoLabel.setForeground(new Color(0, 140, 0)); // verde
+            startStopButton.setText("Finalizar Simulação");
+            // Durante execução, evita trocar algoritmo/quantum
+            algoritmoCombo.setEnabled(false);
+            quantumSpinner.setEnabled(false);
+            carregarButton.setEnabled(false);
+            // A UI permite tick a tick e run-to-end durante execução
+            tickButton.setEnabled(true);
+            runButton.setEnabled(true);
+        } else {
+            statusSoLabel.setText("● Parado");
+            statusSoLabel.setForeground(new Color(200, 0, 0)); // vermelho
+            startStopButton.setText("Iniciar Simulação");
+            algoritmoCombo.setEnabled(true);
+            quantumSpinner.setEnabled(true);
+            carregarButton.setEnabled(true);
+            tickButton.setEnabled(false);
+            runButton.setEnabled(false);
         }
     }
 }

@@ -17,11 +17,17 @@ public class SimuladorUIControlador {
     private String algoritmo;
     private int quantum;
     private Relogio relogio;
+    private boolean executando;
 
     public SimuladorUIControlador(MainUI ui) {
         this.ui = ui;
         this.tarefas = new ArrayList<>();
         this.relogio = Relogio.getInstancia();
+        executando = false;
+    }
+
+    public boolean isExecutando(){
+        return executando;
     }
 
     public void carregarConfiguracao(String caminho) {
@@ -75,11 +81,28 @@ public class SimuladorUIControlador {
 
 
     public void iniciarSimulacao(String algoritmoUI, int quantumUI) {
+        if(executando) return;
+
         String algoritmoUsado = (algoritmo != null) ? algoritmo : algoritmoUI;
         int quantumUsado = (quantum != 0) ? quantum : quantumUI;
 
         sistema = new SistemaOperacional(tarefas, algoritmoUsado, quantumUsado, 1);
+        executando = true;
+        ui.setEstadoSO(true);
+
         atualizarUI();
+    }
+
+    public void finalizarSimulacao(){
+        if(!executando) return;
+
+        relogio.resetar();
+        sistema = null;
+        executando = false;
+        ui.setEstadoSO(false);
+
+        ui.getPainelGantt().clear();
+        atualizarTabela();
     }
 
     // ---------------------------------------------------------

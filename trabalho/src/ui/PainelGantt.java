@@ -21,6 +21,8 @@ import javax.imageio.ImageIO;
  * - PRONTA      -> cinza
  * - OUTROS (bloqueada, finalizada, inexistente) -> não pinta (fundo branco)
  */
+
+
 public class PainelGantt extends JPanel {
 
     // Paleta fixa com boa distinção
@@ -52,6 +54,13 @@ public class PainelGantt extends JPanel {
         Color c = Color.getHSBColor(h, 0.75f, 0.95f);
         int sum = c.getRed() + c.getGreen() + c.getBlue();
         return (sum > 700) ? c.darker().darker() : c;
+    }
+
+    public void clear(){
+        hist.clear();
+        coresTarefas.clear();
+        tickAtual = 0;
+        repaint();
     }
 
     /**
