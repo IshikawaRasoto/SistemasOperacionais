@@ -1,7 +1,6 @@
 package simulador;
 
 import sistemaoperacional.SistemaOperacional;
-import configuracao.LeitorDeConfiguracao;
 import modelo.Tarefa;
 
 import java.util.ArrayList;
@@ -12,7 +11,6 @@ import ui.Terminal;
 public class Simulador {
 
     private SistemaOperacional so;
-    private LeitorDeConfiguracao leitor;
 
     Relogio relogio;
 

@@ -11,7 +11,6 @@ import modelo.EstadoTarefa;
 import simulador.Relogio;
 
 import sistemaoperacional.nucleo.Escalonador;
-import sistemaoperacional.nucleo.Interrupcoes;
 
 import java.util.ArrayList;
 import java.util.Queue;
@@ -22,7 +21,6 @@ import ui.Terminal;
 public class SistemaOperacional {
 
     // Configuracoes do SO
-    private Interrupcoes interrupcoesHabilitadas = null;
     private String algoritmoEscalonador = "";
     private int quantum = 0;
     private ArrayList<Tarefa> tarefasParaCriar; // Lista das tarefas que devem ser criadas ao longo da execucao da simulacao.
@@ -31,9 +29,6 @@ public class SistemaOperacional {
     private Escalonador escalonador;
     private Processador processador;
     private Relogio relogio = null;
-
-    // Flags de controle
-    private Interrupcoes flag_interrupcoes = new Interrupcoes();
 
     // Listas de TCBs
     private Queue<TCB> listaTCBs; // Lista de todas as TCBs criadas no sistema.
@@ -104,7 +99,6 @@ public class SistemaOperacional {
                 listaTCBs.add(novoTCB);
                 listaProntos.add(novoTCB);
                 tarefasRemovidas.add(tarefa);
-                flag_interrupcoes.chegada_de_tarefa = true;
             }
         }
         tarefasParaCriar.removeAll(tarefasRemovidas);

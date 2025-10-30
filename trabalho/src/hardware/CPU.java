@@ -2,8 +2,6 @@ package hardware;
 
 import modelo.TCB;
 
-import sistemaoperacional.nucleo.Interrupcoes;
-
 public class CPU {
     EstadoCPU estado;
     TCB tarefaAtual;
