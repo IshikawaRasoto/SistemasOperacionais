@@ -1,0 +1,10 @@
+A INTERFACE DE ACESSO permite que processos leiam e escrevam nos arquivos. O de alto nível é definido pela linguagem, enquanto o de baixo nível utiliza chamada de sistemas. Os DESCRITORES DE ARQUIVOS representam sua lógica, o de alto nível é usado pela aplicação através da linguagem enquanto o baixo nível é uma referência do kernel ao arquivos abertos.
+
+Na ABERTURA DE UM ARQUIVO, a aplicação solicita ao kernel através de uma chamada de sistema, o que acarreta no carregamento do arquivo a partir do disco, a criação de structs no Kernel para simbolizar esse arquivo e então essa referência é passada ao processo para que possa ser utilizada pelos descritor de alto nível. O FECHAMENTO finaliza as escritas pendentes e destróis as structs criadas.
+
+As FORMAS DE ACESSO: sequencial, aleatório (direto), mapeado em memória (páginas) e Indexado (Tabela chave/valor).
+
+COMPARTILHAMENTO DE ARQUIVOS E TRAVAS: O acesso concorrente é gerenciado através de travas.
+SEMÂNTICA: É como as modificações são vistas por outros processos, pode ser instantânea ou apenas após o fechamento de arquivo (comum em redes).
+
+CONTROLE DE ACESSO: Realizado na abertura do arquivo, o Kernel verifica se o usuário ou grupo tem permissão para a operação requisitada (Read, Write, Exec).
