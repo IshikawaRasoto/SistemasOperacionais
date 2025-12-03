@@ -11,49 +11,15 @@ import java.util.*;
 import java.util.List;
 import javax.imageio.ImageIO;
 
-/**
- * Painel que desenha o gráfico de Gantt da simulação.
- * Cada linha representa uma tarefa, e o eixo X representa o tempo (ticks).
- * Atualizado dinamicamente pelo SO: chame atualizarGantt(snapshot, tickDoSO).
- *
- * Regras visuais:
- * - EXECUTANDO  -> cor da tarefa (paleta da UI)
- * - PRONTA      -> cinza
- * - OUTROS (bloqueada, finalizada, inexistente) -> não pinta (fundo branco)
- */
-
-
 public class PainelGantt extends JPanel {
 
-    // Paleta fixa com boa distinção
-    private static final Color[] PALETA = new Color[] {
-            new Color(0xE74C3C), // vermelho
-            new Color(0x3498DB), // azul
-            new Color(0x27AE60), // verde
-            new Color(0xF1C40F), // amarelo
-            new Color(0x9B59B6), // roxo
-            new Color(0xE67E22), // laranja
-            new Color(0x16A085), // turquesa
-            new Color(0x2C3E50)  // azul escuro
-    };
-
-    // Histórico do Gantt: ID -> lista de estados por tick
-    // 0 = OUTRO (não pinta), 1 = PRONTA (cinza), 2 = EXECUTANDO (cor)
+    // Histórico do Gantt
     private final Map<String, List<Byte>> hist = new LinkedHashMap<>();
     private final Map<String, Color> coresTarefas = new HashMap<>();
     private int tickAtual = 0;
 
     public PainelGantt() {
         setBackground(Color.WHITE);
-    }
-
-    private static Color corPorIndice(int idx){
-        if (idx < 0) idx = -idx;
-        if (idx < PALETA.length) return PALETA[idx];
-        float h = (idx % 360) / 360f;
-        Color c = Color.getHSBColor(h, 0.75f, 0.95f);
-        int sum = c.getRed() + c.getGreen() + c.getBlue();
-        return (sum > 700) ? c.darker().darker() : c;
     }
 
     public void clear(){
@@ -63,31 +29,33 @@ public class PainelGantt extends JPanel {
         repaint();
     }
 
-    /**
-     * Atualiza o histórico do Gantt no índice exato do tick informado pelo SO.
-     * @param tarefas  snapshot das TCBs no tick atual (após decisão do escalonador)
-     * @param tickDoSO índice do tick (0,1,2,...) que estamos registrando
-     */
     public void atualizarGantt(ArrayList<TCB> tarefas, int tickDoSO) {
         this.tickAtual = tickDoSO;
 
-        // Garante entrada e cor para todas as tarefas presentes no snapshot
         for (TCB t : tarefas) {
             String id = t.getTarefa().getId();
             hist.putIfAbsent(id, new ArrayList<>());
-            int idxCor = t.getTarefa().getCor(); // índice/categoria vindo da config
-            coresTarefas.putIfAbsent(id, corPorIndice(idxCor));
+
+            // MODIFICADO: Decodifica a cor hexadecimal da tarefa
+            if (!coresTarefas.containsKey(id)) {
+                String hex = t.getTarefa().getCorHex();
+                Color cor;
+                try {
+                    // Converte "F0E0D0" para int e cria a cor
+                    cor = new Color(Integer.parseInt(hex, 16));
+                } catch (Exception e) {
+                    cor = Color.DARK_GRAY; // Fallback se o hex for inválido
+                }
+                coresTarefas.put(id, cor);
+            }
         }
 
-        // Para cada tarefa já conhecida, grava o estado no índice == tickDoSO
         for (Map.Entry<String, List<Byte>> e : hist.entrySet()) {
             String id = e.getKey();
             List<Byte> linha = e.getValue();
 
-            // Preenche buracos até (tickDoSO - 1) com OUTRO (0)
             while (linha.size() < tickDoSO) linha.add((byte)0);
 
-            // Estado default OUTRO
             byte estadoTick = 0;
             TCB achada = null;
             for (TCB t : tarefas) {
@@ -99,9 +67,8 @@ public class PainelGantt extends JPanel {
             }
 
             if (linha.size() == tickDoSO) linha.add(estadoTick);
-            else linha.set(tickDoSO, estadoTick); // sobrescreve se já havia
+            else linha.set(tickDoSO, estadoTick);
         }
-
         repaint();
     }
 
@@ -118,7 +85,6 @@ public class PainelGantt extends JPanel {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Layout
         int altura = getHeight();
         int largura = getWidth();
         int margemEsq = 80;
@@ -129,12 +95,10 @@ public class PainelGantt extends JPanel {
         int linhas = Math.max(1, hist.size());
         int linhaAltura = Math.max(25, (altura - margemTop - margemInf - 20) / linhas);
 
-        // Número de colunas visíveis = ticks registrados até o atual (0..tickAtual)
         int numCols = tickAtual + 1;
         int areaUtil = Math.max(1, largura - margemEsq - margemDir);
         int tickLargura = Math.max(6, areaUtil / Math.max(1, numCols));
 
-        // Grade + labels
         int linha = 0;
         for (String id : hist.keySet()) {
             int y = margemTop + linha * linhaAltura;
@@ -145,7 +109,6 @@ public class PainelGantt extends JPanel {
             linha++;
         }
 
-        // Blocos por estado: só desenhar até numCols (evita "pintar à frente")
         linha = 0;
         for (Map.Entry<String, List<Byte>> entry : hist.entrySet()) {
             String id = entry.getKey();
@@ -155,13 +118,12 @@ public class PainelGantt extends JPanel {
             int maxT = Math.min(numCols, ticks.size());
             for (int t = 0; t < maxT; t++) {
                 byte estado = ticks.get(t);
-                if (estado == 0) continue; // OUTRO -> não pinta
+                if (estado == 0) continue;
 
                 int x = margemEsq + t * tickLargura;
                 int bw = tickLargura - 2;
                 int bh = linhaAltura - 10;
 
-                // Clamp para não estourar a borda direita
                 if (x >= largura - margemDir) break;
                 if (x + bw > largura - margemDir) bw = (largura - margemDir) - x;
 
@@ -178,7 +140,6 @@ public class PainelGantt extends JPanel {
             linha++;
         }
 
-        // === EIXO DO TEMPO (inferior) ===
         int yEixo = altura - margemInf;
         g2.setColor(Color.BLACK);
         g2.drawLine(margemEsq, yEixo, largura - margemDir, yEixo);
@@ -189,20 +150,8 @@ public class PainelGantt extends JPanel {
             g2.drawLine(x, yEixo - 5, x, yEixo + 5);
             if (t % 5 == 0 || t == tickAtual) g2.drawString(String.valueOf(t), x - 5, yEixo + 20);
         }
-
-        // Linha vermelha do tick atual (clampeada)
-        /*
-        g2.setColor(Color.RED);
-        int xTick = margemEsq + tickAtual * tickLargura;
-        xTick = Math.min(xTick, largura - margemDir);
-        g2.drawLine(xTick, margemTop - 10, xTick, yEixo);
-        g2.drawString("Tick: " + tickAtual, Math.min(largura - 120, xTick + 10), yEixo + 25);
-         */
     }
 
-    /**
-     * Exporta o gráfico de Gantt atual como uma imagem PNG.
-     */
     public void exportarComoPNG(File destino) {
         try {
             BufferedImage image = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
