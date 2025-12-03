@@ -3,40 +3,33 @@ package sistemaoperacional;
 import hardware.CPU;
 import hardware.Processador;
 import hardware.EstadoCPU;
-
 import modelo.Tarefa;
 import modelo.TCB;
 import modelo.EstadoTarefa;
-
 import simulador.Relogio;
-
 import sistemaoperacional.nucleo.Escalonador;
+import sistemaoperacional.nucleo.CausaEscalonamento;
+import ui.Terminal;
 
 import java.util.ArrayList;
 import java.util.Queue;
 import java.util.LinkedList;
 
-import ui.Terminal;
-
 public class SistemaOperacional {
 
-    // Configuracoes do SO
+    // ... (Atributos permanecem iguais: algoritmoEscalonador, quantum, etc) ...
     private String algoritmoEscalonador = "";
     private int quantum = 0;
-    private ArrayList<Tarefa> tarefasParaCriar; // Lista das tarefas que devem ser criadas ao longo da execucao da simulacao.
-
-    // Instancias
+    private ArrayList<Tarefa> tarefasParaCriar;
     private Escalonador escalonador;
     private Processador processador;
-    private Relogio relogio = null;
-
-    // Listas de TCBs
-    private Queue<TCB> listaTCBs; // Lista de todas as TCBs criadas no sistema.
-    private Queue<TCB> listaProntos; // Lista de TCBs que estao no estado PRONTO.
-
-
+    private Relogio relogio;
+    private Queue<TCB> listaTCBs;
+    private Queue<TCB> listaProntos;
+    private boolean houveInsercaoDeTarefas = false;
 
     public SistemaOperacional(ArrayList<Tarefa> tarefasParaCriar, String algoritmoEscalonador, int quantum, int numeroDeNucleos) {
+        // ... (Construtor permanece igual) ...
         this.tarefasParaCriar = tarefasParaCriar;
         this.algoritmoEscalonador = algoritmoEscalonador;
         this.quantum = quantum;
@@ -44,137 +37,150 @@ public class SistemaOperacional {
         this.processador = new Processador(numeroDeNucleos);
         this.listaTCBs = new LinkedList<>();
         this.listaProntos = new LinkedList<>();
-
         this.relogio = Relogio.getInstancia();
-
-        Terminal.println("SO configurado: ");
-        Terminal.println("- Algoritmo de escalonamento: " + algoritmoEscalonador);
-        Terminal.println("- Quantum: " + quantum);
-        Terminal.println("- Numero de nucleos: " + numeroDeNucleos);
-        Terminal.println("- Tarefas a serem criadas: ");
-        Terminal.printaListaTarefa(tarefasParaCriar);
-        Terminal.esperar();
+        Terminal.println("SO configurado: " + algoritmoEscalonador + " | Quantum: " + quantum);
     }
 
     public void execTick() {
-
-        Terminal.resumePrintln("==============================");
-        Terminal.resumePrintln("Tick: " + relogio.getTickAtual());
-
-        Terminal.println("--- Executando tick do SO ---");
-        Terminal.println("Tick atual: " + relogio.getTickAtual());
-
-        // 1. Criar novas tarefas conforme o tempo do relogio
-        Terminal.debugPrintln("Ir para criacao de tarefas?");
-        Terminal.esperar();
+        // 1. Criar tarefas
         criarTarefas();
 
-        // 2. Verificar e escalonar tarefas
-        Terminal.debugPrintln("Ir para verificacao e escalonamento?");
-        Terminal.esperar();
+        // 2. Escalonar
         verificarTarefasProcessandoEEscalonar();
 
-        Terminal.resumeEsperar();
-
-        // 3. Atualizar o estado das tarefas em execucao
-        Terminal.println("--- Atualizando estado das tarefas em execucao ---");
-        processador.executarProcessos();
-
-    }
-
-    public void executarProcessos(){
+        // 3. Executar Hardware
         processador.executarProcessos();
     }
+
+    // ... (métodos executarProcessos e criarTarefas permanecem iguais) ...
+    public void executarProcessos(){ processador.executarProcessos(); }
 
     public void criarTarefas() {
-        // Implementar a criacao de tarefas conforme o tempo do relogio
-        // Se a tarefa for criada, retira da lista de tarefas a serem criadas.
-
-        Terminal.println("--- Criando tarefas ---");
-
+        this.houveInsercaoDeTarefas = false;
         ArrayList<Tarefa> tarefasRemovidas = new ArrayList<>();
         for (Tarefa tarefa : tarefasParaCriar) {
             if (tarefa.getInicio() == relogio.getTickAtual()) {
                 TCB novoTCB = new TCB(tarefa);
                 listaTCBs.add(novoTCB);
-                listaProntos.add(novoTCB);
+                listaProntos.add(novoTCB); // Entra no final da fila
                 tarefasRemovidas.add(tarefa);
             }
         }
         tarefasParaCriar.removeAll(tarefasRemovidas);
-
-        Terminal.println("Tarefas criadas neste tick: ");
-        Terminal.printaListaTarefa(tarefasRemovidas);
+        if (!tarefasRemovidas.isEmpty()) {
+            this.houveInsercaoDeTarefas = true;
+            Terminal.println("Tarefas criadas: " + tarefasRemovidas.size());
+        }
     }
 
+
+    /**
+     * Lógica de Tempo Compartilhado:
+     * 1. Verifica se precisa interromper a tarefa atual (Quantum, Fim, etc).
+     * 2. Se interromper: Salva contexto (devolve p/ fila) -> Escolhe nova -> Restaura contexto.
+     */
     public void verificarTarefasProcessandoEEscalonar(){
 
-        Terminal.println("--- Verificando tarefas em execucao e escalonando ---");
-        Terminal.println("Lista de prontos antes do escalonamento: ");
-        Terminal.printaListaTCB(listaProntos);
-
         for (CPU cpu : processador.getNucleos()) {
+            TCB tarefaAtual = cpu.getTarefaAtual();
 
-            Terminal.println("Processo no nucleo atual:");
-            Terminal.printaTCB(cpu.getTarefaAtual());
+            // 1. Identificar a CAUSA (o Evento)
+            CausaEscalonamento causa = null;
 
-            TCB proximaTarefa = escalonador.escolherTarefaParaExecucao(listaProntos, cpu.getTarefaAtual());
+            if (tarefaAtual == null) {
+                causa = CausaEscalonamento.CPU_OCIOSA;
 
-            if (proximaTarefa != null) {
-                Terminal.println("Tarefa escolhida para execucao neste nucleo:");
-                Terminal.printaTCB(proximaTarefa);
-                if (cpu.getEstado() == EstadoCPU.OCIOSA) {
-                    cpu.novoProcesso(proximaTarefa);
-                    proximaTarefa.entrarNoProcessador();
-                    listaProntos.remove(proximaTarefa);
-                } else if (proximaTarefa != cpu.getTarefaAtual()) {
-                    if(cpu.getTarefaAtual().getEstadoTarefa() != EstadoTarefa.FINALIZADA) {
-                        listaProntos.add(cpu.getTarefaAtual());
-                    }
-                    cpu.getTarefaAtual().sairDoProcessador();
-                    cpu.finalizarProcesso();
-                    cpu.novoProcesso(proximaTarefa);
-                    proximaTarefa.entrarNoProcessador();
-                    listaProntos.remove(proximaTarefa);
-                }
-            }else{
-                Terminal.println("Nenhuma tarefa escolhida para execucao neste nucleo.");
-                if(cpu.getEstado() == EstadoCPU.OCUPADA){
-                    if(cpu.getTarefaAtual().getEstadoTarefa() == EstadoTarefa.FINALIZADA){
-                        cpu.getTarefaAtual().sairDoProcessador();
-                        cpu.finalizarProcesso();
-                    }
-                }
+            } else if (tarefaAtual.getEstadoTarefa() == EstadoTarefa.FINALIZADA) {
+                causa = CausaEscalonamento.TAREFA_FINALIZADA;
+
+            } else if (quantum > 0 && (relogio.getTickAtual() - tarefaAtual.getInicioFatiaAtual()) >= quantum) {
+                causa = CausaEscalonamento.QUANTUM_EXPIRADO;
+
+            } else if (houveInsercaoDeTarefas) {
+                causa = CausaEscalonamento.NOVA_TAREFA;
             }
-            Terminal.resumePrintListaPronta(listaProntos);
-            Terminal.resumePrintTarefaExecutando(cpu.getTarefaAtual());
+
+            // Se não houve nenhum evento relevante, pula para o próximo núcleo
+            if (causa == null) continue;
+
+            // 2. Perguntar ao Escalonador se deve agir baseada na causa
+            boolean deveEscalonar = escalonador.deveTrocarContexto(tarefaAtual, listaProntos, causa);
+
+            if (deveEscalonar) {
+                Terminal.println("Escalonador decidiu trocar. Motivo: " + causa);
+
+                // Lógica de troca de contexto (igual a antes: tira a atual, devolve pra fila, pega a próxima)
+                realizarTrocaDeContexto(cpu, tarefaAtual);
+            } else {
+                Terminal.println("Evento " + causa + " ignorado pela política do escalonador.");
+            }
         }
     }
 
-    // TODO - verificar Tarefas suspensas para Defesa B
+    private void realizarTrocaDeContexto(CPU cpu, TCB tarefaAtual) {
+        // 1. Salvar contexto (Tirar da CPU)
+        if (tarefaAtual != null) {
+            tarefaAtual.sairDoProcessador(); // Atualiza contadores do TCB
+            cpu.finalizarProcesso();         // Deixa a CPU ociosa temporariamente
 
-    public boolean terminouTodasTarefas() {
-        if (!tarefasParaCriar.isEmpty()) {
-            return false;
-        }
-        for (TCB tcb : listaTCBs) {
-            if (tcb.getEstadoTarefa() != EstadoTarefa.FINALIZADA) {
-                return false;
+            // 2. Se a tarefa não acabou, ela volta para o fim da fila de prontos
+            if (tarefaAtual.getEstadoTarefa() != EstadoTarefa.FINALIZADA) {
+                Terminal.println("Preempção: Devolvendo " + tarefaAtual.getTarefa().getId() + " para fila de prontos.");
+                listaProntos.add(tarefaAtual);
+            } else {
+                Terminal.println("Tarefa " + tarefaAtual.getTarefa().getId() + " finalizada.");
             }
+        }
+
+        // 3. Escolher a próxima (O escalonador já remove da fila ao escolher)
+        TCB proximaTarefa = escalonador.escolherProximaTarefa(listaProntos);
+
+        // 4. Carregar contexto (Colocar na CPU)
+        if (proximaTarefa != null) {
+            Terminal.println("Selecionada para CPU: " + proximaTarefa.getTarefa().getId());
+            cpu.novoProcesso(proximaTarefa);
+            proximaTarefa.entrarNoProcessador();
+        } else {
+            Terminal.println("Nenhuma tarefa pronta para assumir a CPU.");
+        }
+    }
+
+    private boolean verificarNecessidadeEscalonamento(TCB tarefaAtual) {
+        // 1. CPU Ociosa: precisa buscar tarefa
+        if (tarefaAtual == null) return !listaProntos.isEmpty();
+
+        // 2. Tarefa acabou: libera CPU
+        if (tarefaAtual.getEstadoTarefa() == EstadoTarefa.FINALIZADA) return true;
+
+        // 3. Quantum Expirado: Todos os algoritmos (RR, SRTF, Prioridade) respeitam o Quantum neste modelo
+        if (quantum > 0) {
+            int tempoExecutado = relogio.getTickAtual() - tarefaAtual.getInicioFatiaAtual();
+            if (tempoExecutado >= quantum) {
+                Terminal.debugPrintln("Interrupt: Quantum (" + quantum + ")");
+                return true;
+            }
+        }
+
+        // 4. Chegada de nova tarefa (Preempção por Prioridade/SRTF imediata?)
+        // Se o professor pediu estritamente Time-Sharing controlado por Quantum,
+        // talvez ele não queira preempção imediata na chegada, apenas no fim do Quantum.
+        // MAS, geralmente SRTF preempta na chegada. Vou manter, mas você pode remover se for "Quantum-Only".
+        if (houveInsercaoDeTarefas) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // ... (Restante da classe igual: terminouTodasTarefas, getters, etc) ...
+    public boolean terminouTodasTarefas() {
+        if (!tarefasParaCriar.isEmpty()) return false;
+        for (TCB tcb : listaTCBs) {
+            if (tcb.getEstadoTarefa() != EstadoTarefa.FINALIZADA) return false;
         }
         return true;
     }
 
-    private ArrayList<TCB> converteFilaParaLista(Queue<TCB> fila) {
-        return new ArrayList<>(fila);
-    }
-
-    public ArrayList<TCB> getListaTCBs() {
-        return converteFilaParaLista(listaTCBs);
-    }
-
-    public int getTickAtual() {
-        return relogio.getTickAtual();
-    }
+    public ArrayList<TCB> getListaTCBs() { return new ArrayList<>(listaTCBs); }
+    public int getTickAtual() { return relogio.getTickAtual(); }
 }
-
