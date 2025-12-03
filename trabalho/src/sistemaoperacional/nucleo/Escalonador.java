@@ -1,9 +1,7 @@
 package sistemaoperacional.nucleo;
 
-import simulador.Relogio;
 import modelo.TCB;
 import java.util.Queue;
-import java.util.ArrayList;
 
 public class Escalonador {
 
@@ -15,55 +13,50 @@ public class Escalonador {
         this.quantum = quantum;
     }
 
-    public boolean deveTrocarContexto(TCB tarefaAtual, Queue<TCB> filaProntos, CausaEscalonamento causa) {
+    public AlgoritmosEscalonamento getAlgoritmoEscolhido() {
+        return algoritmoEscolhido;
+    }
 
-        // Regra Universal: Se a tarefa acabou ou a CPU está vazia, PRECISA trocar (ou tentar pegar algo)
+    public boolean deveTrocarContexto(TCB tarefaAtual, Queue<TCB> filaProntos, CausaEscalonamento causa) {
         if (causa == CausaEscalonamento.TAREFA_FINALIZADA || causa == CausaEscalonamento.CPU_OCIOSA) {
             return true;
         }
 
-        // Se a CPU está ocupada e a fila está vazia, geralmente não há por que trocar
-        // (Exceto se o algoritmo quiser punir a tarefa atual, mas vamos simplificar)
         if (filaProntos.isEmpty()) {
             return false;
         }
 
         switch (algoritmoEscolhido) {
             case FIFO:
-                // FIFO é não-preemptivo por natureza (exceto se a tarefa acabar, tratado acima)
-                // Ele IGNORA Quantum e Novas Tarefas.
-                if (causa == CausaEscalonamento.QUANTUM_EXPIRADO) {
-                    return true;
-                }
+                if (causa == CausaEscalonamento.QUANTUM_EXPIRADO) return true;
                 return false;
 
             case SRTF:
-                // SRTF é preemptivo por NOVA TAREFA.
-                // Se chegou tarefa nova, verifica se ela é melhor que a atual.
                 if (causa == CausaEscalonamento.NOVA_TAREFA) {
                     return verificarSeExisteTarefaMaisCurta(tarefaAtual, filaProntos);
                 }
-                // Geralmente SRTF puro ignora Quantum, mas em sistemas híbridos poderia usar.
-                // Vamos assumir que SRTF puro ignora Quantum aqui.
                 return false;
 
             case PRIORIDADE_PREEMPTIVO:
-                // Troca se chegou alguém mais importante
                 if (causa == CausaEscalonamento.NOVA_TAREFA) {
-                    return verificarSeExisteMaiorPrioridade(tarefaAtual, filaProntos);
-                }
-                // Round Robin de Prioridade? Se quiser que ele respeite quantum:
-                if (causa == CausaEscalonamento.QUANTUM_EXPIRADO) {
-                    return true;
+                    return verificarSeExisteMaiorPrioridade(tarefaAtual, filaProntos, false);
                 }
                 return false;
 
-            default: // ROUND_ROBIN (O 'FIFO' deste projeto rodando com tempo compartilhado)
-                // O critério principal do RR é o Quantum.
-                if (causa == CausaEscalonamento.QUANTUM_EXPIRADO) {
-                    return true;
+            case PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO:
+                // Verifica se deve trocar em 3 casos:
+                // 1. Nova Tarefa (Padrão)
+                // 2. Quantum Expirado (Padrão/Segurança)
+                // 3. Envelhecimento (Tick a Tick): Verifica se alguém na fila ficou mais prioritário que a atual
+                if (causa == CausaEscalonamento.NOVA_TAREFA ||
+                        causa == CausaEscalonamento.QUANTUM_EXPIRADO ||
+                        causa == CausaEscalonamento.ENVELHECIMENTO) {
+                    return verificarSeExisteMaiorPrioridade(tarefaAtual, filaProntos, true);
                 }
-                // RR geralmente ignora chegada de nova tarefa (só põe na fila)
+                return false;
+
+            default:
+                if (causa == CausaEscalonamento.QUANTUM_EXPIRADO) return true;
                 return false;
         }
     }
@@ -75,85 +68,77 @@ public class Escalonador {
         return false;
     }
 
-    private boolean verificarSeExisteMaiorPrioridade(TCB atual, Queue<TCB> fila) {
+    private boolean verificarSeExisteMaiorPrioridade(TCB atual, Queue<TCB> fila, boolean usarDinamica) {
         for (TCB t : fila) {
-            if (t.getTarefa().getPrioridade() > atual.getTarefa().getPrioridade()) return true;
+            int pFila = usarDinamica ? t.getPrioridadeDinamica() : t.getTarefa().getPrioridade();
+            int pAtual = usarDinamica ? atual.getPrioridadeDinamica() : atual.getTarefa().getPrioridade();
+
+            // Se a prioridade de alguém na fila for ESTRITAMENTE maior, preempta.
+            if (pFila > pAtual) return true;
         }
         return false;
     }
 
     private void defineAlgoritmoEscalonador(String nomeEscalonador){
-        // Mapeia FIFO como Round Robin neste contexto de tempo compartilhado
-        if (nomeEscalonador.equals("FIFO") || nomeEscalonador.equals("ROUND_ROBIN")){
+        String nome = nomeEscalonador.toUpperCase().trim();
+
+        if (nome.equals("FIFO") || nome.equals("ROUND_ROBIN")){
             algoritmoEscolhido = AlgoritmosEscalonamento.FIFO;
         }
-        else if (nomeEscalonador.equals("SRTF")){
+        else if (nome.equals("SRTF")){
             algoritmoEscolhido = AlgoritmosEscalonamento.SRTF;
         }
-        else if (nomeEscalonador.equals("PRIORIDADE_PREEMPTIVO") || nomeEscalonador.equals("PRIOP")){
+        else if (nome.equals("PRIORIDADE_PREEMPTIVO") || nome.equals("PRIOP")){
             algoritmoEscolhido = AlgoritmosEscalonamento.PRIORIDADE_PREEMPTIVO;
         }
+        else if (nome.equals("PRIOPENV") || nome.equals("PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO")) {
+            algoritmoEscolhido = AlgoritmosEscalonamento.PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO;
+        }
         else{
-            System.out.println("Algoritmo de escalonamento desconhecido. Usando FIFO/RR por padrao.");
+            System.out.println("Algoritmo desconhecido ("+nome+"). Usando FIFO.");
             algoritmoEscolhido = AlgoritmosEscalonamento.FIFO;
         }
     }
 
-    // Assinatura simplificada: Recebe a fila e retorna quem deve sair dela para a CPU
     public TCB escolherProximaTarefa(Queue<TCB> readyQueue) {
-        if (readyQueue.isEmpty()) {
-            return null;
-        }
+        if (readyQueue.isEmpty()) return null;
 
         switch(algoritmoEscolhido) {
             case FIFO:
-                return escalonarRoundRobin(readyQueue);
+                return readyQueue.poll();
             case SRTF:
                 return escalonarSRTF(readyQueue);
             case PRIORIDADE_PREEMPTIVO:
-                return escalonarPrioridade(readyQueue);
+                return escalonarPrioridade(readyQueue, false);
+            case PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO:
+                return escalonarPrioridade(readyQueue, true);
             default:
                 return null;
         }
     }
 
-    // Lógica do Round Robin: Pega o primeiro da fila.
-    // A rotação acontece porque o SO coloca a tarefa anterior no final da fila antes de chamar este metodo.
-    private TCB escalonarRoundRobin(Queue<TCB> readyQueue) {
-        return readyQueue.poll();
-    }
-
     private TCB escalonarSRTF(Queue<TCB> readyQueue) {
-        TCB melhorTarefa = null;
-
-        // Encontra a tarefa com menor tempo restante
-        for(TCB tcb : readyQueue) {
-            if(melhorTarefa == null || tcb.getRestante() < melhorTarefa.getRestante()) {
-                melhorTarefa = tcb;
-            }
+        TCB melhor = null;
+        for(TCB t : readyQueue) {
+            if(melhor == null || t.getRestante() < melhor.getRestante()) melhor = t;
         }
-
-        // Remove da fila para entregar ao processador
-        if (melhorTarefa != null) {
-            readyQueue.remove(melhorTarefa);
-        }
-        return melhorTarefa;
+        if (melhor != null) readyQueue.remove(melhor);
+        return melhor;
     }
 
-    private TCB escalonarPrioridade(Queue<TCB> readyQueue) {
-        TCB melhorTarefa = null;
+    private TCB escalonarPrioridade(Queue<TCB> readyQueue, boolean usarDinamica) {
+        TCB melhor = null;
+        for(TCB t : readyQueue) {
+            if(melhor == null) {
+                melhor = t;
+            } else {
+                int pMelhor = usarDinamica ? melhor.getPrioridadeDinamica() : melhor.getTarefa().getPrioridade();
+                int pAtual = usarDinamica ? t.getPrioridadeDinamica() : t.getTarefa().getPrioridade();
 
-        // Encontra a tarefa com maior prioridade numérica
-        for(TCB tcb : readyQueue) {
-            if(melhorTarefa == null || tcb.getTarefa().getPrioridade() > melhorTarefa.getTarefa().getPrioridade()) {
-                melhorTarefa = tcb;
+                if (pAtual > pMelhor) melhor = t;
             }
         }
-
-        // Remove da fila para entregar ao processador
-        if (melhorTarefa != null) {
-            readyQueue.remove(melhorTarefa);
-        }
-        return melhorTarefa;
+        if (melhor != null) readyQueue.remove(melhor);
+        return melhor;
     }
 }

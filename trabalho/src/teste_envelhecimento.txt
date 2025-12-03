@@ -1,0 +1,5 @@
+PRIOPEnv; 2; 1
+t01_Baixa; 1; 0; 10; 1
+t02_Media; 4; 0; 8; 5
+t03_Alta; 0; 0; 6; 10
+t04_Tardia; 2; 15; 4; 20

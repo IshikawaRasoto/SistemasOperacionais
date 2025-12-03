@@ -2,11 +2,11 @@ package sistemaoperacional;
 
 import hardware.CPU;
 import hardware.Processador;
-import hardware.EstadoCPU;
 import modelo.Tarefa;
 import modelo.TCB;
 import modelo.EstadoTarefa;
 import simulador.Relogio;
+import sistemaoperacional.nucleo.AlgoritmosEscalonamento;
 import sistemaoperacional.nucleo.Escalonador;
 import sistemaoperacional.nucleo.CausaEscalonamento;
 import ui.Terminal;
@@ -17,9 +17,9 @@ import java.util.LinkedList;
 
 public class SistemaOperacional {
 
-    // ... (Atributos permanecem iguais: algoritmoEscalonador, quantum, etc) ...
     private String algoritmoEscalonador = "";
     private int quantum = 0;
+    private int alpha = 0;
     private ArrayList<Tarefa> tarefasParaCriar;
     private Escalonador escalonador;
     private Processador processador;
@@ -28,32 +28,36 @@ public class SistemaOperacional {
     private Queue<TCB> listaProntos;
     private boolean houveInsercaoDeTarefas = false;
 
-    public SistemaOperacional(ArrayList<Tarefa> tarefasParaCriar, String algoritmoEscalonador, int quantum, int numeroDeNucleos) {
-        // ... (Construtor permanece igual) ...
+    public SistemaOperacional(ArrayList<Tarefa> tarefasParaCriar, String algoritmoEscalonador, int quantum, int alpha, int numeroDeNucleos) {
         this.tarefasParaCriar = tarefasParaCriar;
         this.algoritmoEscalonador = algoritmoEscalonador;
         this.quantum = quantum;
+        this.alpha = alpha;
         this.escalonador = new Escalonador(algoritmoEscalonador, quantum);
         this.processador = new Processador(numeroDeNucleos);
         this.listaTCBs = new LinkedList<>();
         this.listaProntos = new LinkedList<>();
         this.relogio = Relogio.getInstancia();
-        Terminal.println("SO configurado: " + algoritmoEscalonador + " | Quantum: " + quantum);
+        Terminal.println("SO configurado: " + algoritmoEscalonador + " | Q: " + quantum + " | Alpha: " + alpha);
+    }
+
+    public SistemaOperacional(ArrayList<Tarefa> tarefasParaCriar, String algoritmoEscalonador, int quantum, int numeroDeNucleos) {
+        this(tarefasParaCriar, algoritmoEscalonador, quantum, 0, numeroDeNucleos);
     }
 
     public void execTick() {
-        // 1. Criar tarefas
         criarTarefas();
-
-        // 2. Escalonar
         verificarTarefasProcessandoEEscalonar();
-
-        // 3. Executar Hardware
         processador.executarProcessos();
     }
 
-    // ... (métodos executarProcessos e criarTarefas permanecem iguais) ...
-    public void executarProcessos(){ processador.executarProcessos(); }
+    private void aplicarEnvelhecimento() {
+        if (escalonador.getAlgoritmoEscolhido() == AlgoritmosEscalonamento.PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO && alpha > 0) {
+            for (TCB tcb : listaProntos) {
+                tcb.envelhecer(alpha);
+            }
+        }
+    }
 
     public void criarTarefas() {
         this.houveInsercaoDeTarefas = false;
@@ -62,7 +66,7 @@ public class SistemaOperacional {
             if (tarefa.getInicio() == relogio.getTickAtual()) {
                 TCB novoTCB = new TCB(tarefa);
                 listaTCBs.add(novoTCB);
-                listaProntos.add(novoTCB); // Entra no final da fila
+                listaProntos.add(novoTCB);
                 tarefasRemovidas.add(tarefa);
             }
         }
@@ -73,106 +77,67 @@ public class SistemaOperacional {
         }
     }
 
-
-    /**
-     * Lógica de Tempo Compartilhado:
-     * 1. Verifica se precisa interromper a tarefa atual (Quantum, Fim, etc).
-     * 2. Se interromper: Salva contexto (devolve p/ fila) -> Escolhe nova -> Restaura contexto.
-     */
     public void verificarTarefasProcessandoEEscalonar(){
+
+        aplicarEnvelhecimento();
 
         for (CPU cpu : processador.getNucleos()) {
             TCB tarefaAtual = cpu.getTarefaAtual();
-
-            // 1. Identificar a CAUSA (o Evento)
             CausaEscalonamento causa = null;
 
             if (tarefaAtual == null) {
                 causa = CausaEscalonamento.CPU_OCIOSA;
-
             } else if (tarefaAtual.getEstadoTarefa() == EstadoTarefa.FINALIZADA) {
                 causa = CausaEscalonamento.TAREFA_FINALIZADA;
-
             } else if (quantum > 0 && (relogio.getTickAtual() - tarefaAtual.getInicioFatiaAtual()) >= quantum) {
                 causa = CausaEscalonamento.QUANTUM_EXPIRADO;
-
             } else if (houveInsercaoDeTarefas) {
                 causa = CausaEscalonamento.NOVA_TAREFA;
             }
+            // CORREÇÃO: Se temos envelhecimento (alpha > 0), devemos verificar SEMPRE (a cada tick)
+            // se a prioridade de alguém na fila superou a da tarefa atual.
+            else if (alpha > 0 && escalonador.getAlgoritmoEscolhido() == AlgoritmosEscalonamento.PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO) {
+                causa = CausaEscalonamento.ENVELHECIMENTO;
+            }
 
-            // Se não houve nenhum evento relevante, pula para o próximo núcleo
+            // Se não houve causa relevante (e não é o algoritmo de envelhecimento), segue o jogo
             if (causa == null) continue;
 
-            // 2. Perguntar ao Escalonador se deve agir baseada na causa
             boolean deveEscalonar = escalonador.deveTrocarContexto(tarefaAtual, listaProntos, causa);
 
             if (deveEscalonar) {
-                Terminal.println("Escalonador decidiu trocar. Motivo: " + causa);
-
-                // Lógica de troca de contexto (igual a antes: tira a atual, devolve pra fila, pega a próxima)
+                // Só loga se não for apenas verificação periódica que resultou em true (para não poluir tanto)
+                // ou loga tudo para debug:
+                if (causa != CausaEscalonamento.ENVELHECIMENTO) {
+                    Terminal.println("Troca de contexto. Causa: " + causa);
+                } else {
+                    Terminal.debugPrintln("Preempção por Envelhecimento!");
+                }
                 realizarTrocaDeContexto(cpu, tarefaAtual);
-            } else {
-                Terminal.println("Evento " + causa + " ignorado pela política do escalonador.");
             }
         }
     }
 
     private void realizarTrocaDeContexto(CPU cpu, TCB tarefaAtual) {
-        // 1. Salvar contexto (Tirar da CPU)
         if (tarefaAtual != null) {
-            tarefaAtual.sairDoProcessador(); // Atualiza contadores do TCB
-            cpu.finalizarProcesso();         // Deixa a CPU ociosa temporariamente
+            tarefaAtual.sairDoProcessador();
+            cpu.finalizarProcesso();
 
-            // 2. Se a tarefa não acabou, ela volta para o fim da fila de prontos
             if (tarefaAtual.getEstadoTarefa() != EstadoTarefa.FINALIZADA) {
-                Terminal.println("Preempção: Devolvendo " + tarefaAtual.getTarefa().getId() + " para fila de prontos.");
                 listaProntos.add(tarefaAtual);
-            } else {
-                Terminal.println("Tarefa " + tarefaAtual.getTarefa().getId() + " finalizada.");
             }
         }
 
-        // 3. Escolher a próxima (O escalonador já remove da fila ao escolher)
         TCB proximaTarefa = escalonador.escolherProximaTarefa(listaProntos);
 
-        // 4. Carregar contexto (Colocar na CPU)
         if (proximaTarefa != null) {
-            Terminal.println("Selecionada para CPU: " + proximaTarefa.getTarefa().getId());
             cpu.novoProcesso(proximaTarefa);
             proximaTarefa.entrarNoProcessador();
-        } else {
-            Terminal.println("Nenhuma tarefa pronta para assumir a CPU.");
         }
     }
 
-    private boolean verificarNecessidadeEscalonamento(TCB tarefaAtual) {
-        // 1. CPU Ociosa: precisa buscar tarefa
-        if (tarefaAtual == null) return !listaProntos.isEmpty();
+    public void executarProcessos(){ processador.executarProcessos(); }
 
-        // 2. Tarefa acabou: libera CPU
-        if (tarefaAtual.getEstadoTarefa() == EstadoTarefa.FINALIZADA) return true;
-
-        // 3. Quantum Expirado: Todos os algoritmos (RR, SRTF, Prioridade) respeitam o Quantum neste modelo
-        if (quantum > 0) {
-            int tempoExecutado = relogio.getTickAtual() - tarefaAtual.getInicioFatiaAtual();
-            if (tempoExecutado >= quantum) {
-                Terminal.debugPrintln("Interrupt: Quantum (" + quantum + ")");
-                return true;
-            }
-        }
-
-        // 4. Chegada de nova tarefa (Preempção por Prioridade/SRTF imediata?)
-        // Se o professor pediu estritamente Time-Sharing controlado por Quantum,
-        // talvez ele não queira preempção imediata na chegada, apenas no fim do Quantum.
-        // MAS, geralmente SRTF preempta na chegada. Vou manter, mas você pode remover se for "Quantum-Only".
-        if (houveInsercaoDeTarefas) {
-            return true;
-        }
-
-        return false;
-    }
-
-    // ... (Restante da classe igual: terminouTodasTarefas, getters, etc) ...
     public boolean terminouTodasTarefas() {
         if (!tarefasParaCriar.isEmpty()) return false;
         for (TCB tcb : listaTCBs) {

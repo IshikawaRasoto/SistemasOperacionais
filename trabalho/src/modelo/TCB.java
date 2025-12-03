@@ -1,6 +1,5 @@
 package modelo;
 
-
 import simulador.Relogio;
 
 public class TCB {
@@ -14,6 +13,9 @@ public class TCB {
     private int inicioFatiaAtual = -1;
     private int esperaAcumulada = 0;
 
+    // Prioridade dinâmica para o algoritmo de envelhecimento
+    private int prioridadeDinamica;
+
     private final Relogio relogio = Relogio.getInstancia();
 
     public TCB(Tarefa tarefa) {
@@ -22,6 +24,8 @@ public class TCB {
         this.restante = tarefa.getDuracaoTotal();
         this.quantumUsado = 0;
         this.tickEntradaFilaPronta = relogio.getTickAtual();
+        // Inicializa com a prioridade estática (original)
+        this.prioridadeDinamica = tarefa.getPrioridade();
     }
 
     public void entrarFilaPronta(){
@@ -33,6 +37,11 @@ public class TCB {
         this.estadoTarefa = EstadoTarefa.EXECUTANDO;
         this.tickEntradaProcessador = relogio.getTickAtual();
         this.inicioFatiaAtual = relogio.getTickAtual();
+
+        // CORREÇÃO: Rejuvenesce a prioridade ao ganhar a CPU.
+        // A tarefa volta para sua prioridade base. Se precisar ganhar a CPU novamente
+        // no futuro contra tarefas mais prioritárias, terá que "envelhecer" na fila de novo.
+        this.prioridadeDinamica = tarefa.getPrioridade();
     }
 
     public void sairDoProcessador(){
@@ -61,7 +70,13 @@ public class TCB {
         }
     }
 
-    // Setters
+    // Método usado pelo SO para aplicar envelhecimento a quem está na fila
+    public void envelhecer(int alpha) {
+        this.prioridadeDinamica += alpha;
+    }
+
+    // --- Getters e Setters ---
+
     public void setEstadoTarefa(EstadoTarefa estadoTarefa) {
         this.estadoTarefa = estadoTarefa;
     }
@@ -74,7 +89,6 @@ public class TCB {
         this.tickTermino = tickTermino;
     }
 
-    // Getters
     public Tarefa getTarefa() {
         return tarefa;
     }
@@ -109,5 +123,9 @@ public class TCB {
 
     public int getEsperaAcumulada() {
         return esperaAcumulada;
+    }
+
+    public int getPrioridadeDinamica() {
+        return prioridadeDinamica;
     }
 }

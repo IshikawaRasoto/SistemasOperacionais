@@ -14,10 +14,11 @@ public class SimuladorUIControlador {
 
     private final MainUI ui;
     private SistemaOperacional sistema;
-    private ArrayList<Tarefa> tarefas;
+    private final ArrayList<Tarefa> tarefas;
     private String algoritmo;
     private int quantum;
-    private Relogio relogio;
+    private int alpha = 0; // NOVO: Armazena o fator de envelhecimento
+    private final Relogio relogio;
     private boolean executando;
 
     public SimuladorUIControlador(MainUI ui) {
@@ -33,19 +34,30 @@ public class SimuladorUIControlador {
 
     public void carregarConfiguracao(String caminho) {
         tarefas.clear();
+        this.alpha = 0; // Resetar alpha ao carregar novo arquivo
+
         try (BufferedReader br = new BufferedReader(new FileReader(caminho))) {
             String linha = br.readLine();
             if (linha == null || linha.isBlank()) {
                 throw new IOException("Arquivo de configuração vazio.");
             }
 
-            // Primeira linha -> algoritmo;quantum
+            // Primeira linha -> algoritmo;quantum [;alpha]
             String[] config = linha.split(";");
             if (config.length < 2)
                 throw new IOException("Primeira linha deve conter algoritmo e quantum, separados por ';'.");
 
             algoritmo = config[0].trim().toUpperCase();
             quantum = Integer.parseInt(config[1].trim());
+
+            // NOVO: Leitura opcional do Alpha (se existir) para Projeto B
+            if (config.length >= 3 && !config[2].isBlank()) {
+                try {
+                    alpha = Integer.parseInt(config[2].trim());
+                } catch (NumberFormatException e) {
+                    alpha = 0;
+                }
+            }
 
             // Linhas seguintes -> tarefas
             String linhaTarefa;
@@ -56,7 +68,16 @@ public class SimuladorUIControlador {
                     throw new IOException("Formato inválido em linha de tarefa: " + linhaTarefa);
 
                 String id = partes[0].trim();
-                int corIdx = Integer.parseInt(partes[1].trim());
+
+                // Adaptação para suportar tanto int quanto HEX na cor (Projeto B pede HEX)
+                int corIdx = 0;
+                try {
+                    corIdx = Integer.parseInt(partes[1].trim());
+                } catch (NumberFormatException e) {
+                    // Se for HEX ou string, gera um índice simples para não quebrar a UI
+                    corIdx = Math.abs(partes[1].hashCode()) % 8;
+                }
+
                 int inicio = Integer.parseInt(partes[2].trim());
                 int duracao = Integer.parseInt(partes[3].trim());
                 int prioridade = Integer.parseInt(partes[4].trim());
@@ -65,10 +86,12 @@ public class SimuladorUIControlador {
                 tarefas.add(tarefa);
             }
 
-            JOptionPane.showMessageDialog(null,
-                    "Configuração carregada com sucesso!\nAlgoritmo: " + algoritmo +
-                            "\nQuantum: " + quantum +
-                            "\nTarefas carregadas: " + tarefas.size());
+            String msg = "Configuração carregada com sucesso!\nAlgoritmo: " + algoritmo +
+                    "\nQuantum: " + quantum +
+                    (alpha > 0 ? "\nAlpha (Envelhecimento): " + alpha : "") +
+                    "\nTarefas carregadas: " + tarefas.size();
+
+            JOptionPane.showMessageDialog(null, msg);
 
             // sincroniza UI de seleção
             ui.setAlgoritmoNaUI(algoritmo);
@@ -98,7 +121,8 @@ public class SimuladorUIControlador {
 
         // define algoritmo e quantum do exemplo
         this.algoritmo = "FIFO";
-        this.quantum = 2; // ajuste se quiser
+        this.quantum = 2;
+        this.alpha = 0; // Resetar alpha
 
         tarefas.add(new Tarefa("t01", 0, 0, 5, 3));
         tarefas.add(new Tarefa("t02", 1, 0, 3, 2));
@@ -125,10 +149,14 @@ public class SimuladorUIControlador {
     public void iniciarSimulacao(String algoritmoUI, int quantumUI) {
         if(executando) return;
 
-        String algoritmoUsado = (algoritmo != null) ? algoritmo : algoritmoUI;
+        // Se carregou do arquivo (e não limpou), usa as vars da classe.
+        // Se o usuário mudou na combo box, usa da UI.
+        String algoritmoUsado = (algoritmo != null && !algoritmo.isEmpty()) ? algoritmo : algoritmoUI;
         int quantumUsado = (quantum != 0) ? quantum : quantumUI;
 
-        sistema = new SistemaOperacional(tarefas, algoritmoUsado, quantumUsado, 1);
+        // NOVO: Passando alpha para o construtor do SO
+        sistema = new SistemaOperacional(tarefas, algoritmoUsado, quantumUsado, alpha, 1);
+
         executando = true;
         ui.setEstadoSO(true);
 
@@ -177,21 +205,10 @@ public class SimuladorUIControlador {
     // Atualização da interface
     // ---------------------------------------------------------
     private void atualizarUI() {
-        ArrayList<TCB> lista = sistema != null ? sistema.getListaTCBs() : new ArrayList<>();
-
-        Object[][] dados = new Object[lista.size()][6];
-        for (int i = 0; i < lista.size(); i++) {
-            TCB t = lista.get(i);
-            dados[i][0] = t.getTarefa().getId();
-            dados[i][1] = t.getTarefa().getInicio();
-            dados[i][2] = t.getTarefa().getDuracaoTotal();
-            dados[i][3] = t.getTarefa().getPrioridade();
-            dados[i][4] = t.getEstadoTarefa();
-            dados[i][5] = t.getRestante();
-        }
-
-        ui.atualizarTabela(dados);
+        if (sistema == null) return;
+        ArrayList<TCB> lista = sistema.getListaTCBs();
         ui.getPainelGantt().atualizarGantt(lista, sistema.getTickAtual());
+        atualizarTabela();
     }
 
     private void atualizarTabela() {
@@ -202,7 +219,14 @@ public class SimuladorUIControlador {
             dados[i][0] = t.getTarefa().getId();
             dados[i][1] = t.getTarefa().getInicio();
             dados[i][2] = t.getTarefa().getDuracaoTotal();
-            dados[i][3] = t.getTarefa().getPrioridade();
+
+            // NOVO: Exibe prioridade dinâmica se houver envelhecimento
+            if (alpha > 0) {
+                dados[i][3] = t.getPrioridadeDinamica() + " (" + t.getTarefa().getPrioridade() + ")";
+            } else {
+                dados[i][3] = t.getTarefa().getPrioridade();
+            }
+
             dados[i][4] = t.getEstadoTarefa();
             dados[i][5] = t.getRestante();
         }
