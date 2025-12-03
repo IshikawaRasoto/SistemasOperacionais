@@ -17,7 +17,7 @@ public class SimuladorUIControlador {
     private final ArrayList<Tarefa> tarefas;
     private String algoritmo;
     private int quantum;
-    private int alpha = 0; // NOVO: Armazena o fator de envelhecimento
+    private int alpha = 0;
     private final Relogio relogio;
     private boolean executando;
 
@@ -34,7 +34,7 @@ public class SimuladorUIControlador {
 
     public void carregarConfiguracao(String caminho) {
         tarefas.clear();
-        this.alpha = 0; // Resetar alpha ao carregar novo arquivo
+        this.alpha = 0;
 
         try (BufferedReader br = new BufferedReader(new FileReader(caminho))) {
             String linha = br.readLine();
@@ -42,15 +42,14 @@ public class SimuladorUIControlador {
                 throw new IOException("Arquivo de configuração vazio.");
             }
 
-            // Primeira linha -> algoritmo;quantum [;alpha]
+            // Primeira linha -> algoritmo; quantum [;alpha]
             String[] config = linha.split(";");
             if (config.length < 2)
-                throw new IOException("Primeira linha deve conter algoritmo e quantum, separados por ';'.");
+                throw new IOException("Primeira linha deve conter algoritmo e quantum.");
 
             algoritmo = config[0].trim().toUpperCase();
             quantum = Integer.parseInt(config[1].trim());
 
-            // NOVO: Leitura opcional do Alpha (se existir) para Projeto B
             if (config.length >= 3 && !config[2].isBlank()) {
                 try {
                     alpha = Integer.parseInt(config[2].trim());
@@ -60,103 +59,82 @@ public class SimuladorUIControlador {
             }
 
             // Linhas seguintes -> tarefas
+            // Formato: id; corHex; ingresso; duracao; prioridade
             String linhaTarefa;
             while ((linhaTarefa = br.readLine()) != null) {
                 if (linhaTarefa.isBlank()) continue;
                 String[] partes = linhaTarefa.split(";");
                 if (partes.length < 5)
-                    throw new IOException("Formato inválido em linha de tarefa: " + linhaTarefa);
+                    throw new IOException("Formato inválido: " + linhaTarefa);
 
                 String id = partes[0].trim();
 
-                // Adaptação para suportar tanto int quanto HEX na cor (Projeto B pede HEX)
-                int corIdx = 0;
-                try {
-                    corIdx = Integer.parseInt(partes[1].trim());
-                } catch (NumberFormatException e) {
-                    // Se for HEX ou string, gera um índice simples para não quebrar a UI
-                    corIdx = Math.abs(partes[1].hashCode()) % 8;
-                }
+                // MODIFICADO: Lê a cor como String (Hex) diretamente
+                String corHex = partes[1].trim();
 
                 int inicio = Integer.parseInt(partes[2].trim());
                 int duracao = Integer.parseInt(partes[3].trim());
                 int prioridade = Integer.parseInt(partes[4].trim());
 
-                Tarefa tarefa = new Tarefa(id, corIdx, inicio, duracao, prioridade);
+                Tarefa tarefa = new Tarefa(id, corHex, inicio, duracao, prioridade);
                 tarefas.add(tarefa);
             }
 
-            String msg = "Configuração carregada com sucesso!\nAlgoritmo: " + algoritmo +
+            String msg = "Configuração carregada!\nAlgoritmo: " + algoritmo +
                     "\nQuantum: " + quantum +
-                    (alpha > 0 ? "\nAlpha (Envelhecimento): " + alpha : "") +
-                    "\nTarefas carregadas: " + tarefas.size();
+                    (alpha > 0 ? "\nAlpha: " + alpha : "") +
+                    "\nTarefas: " + tarefas.size();
 
             JOptionPane.showMessageDialog(null, msg);
 
-            // sincroniza UI de seleção
             ui.setAlgoritmoNaUI(algoritmo);
             ui.setQuantumNaUI(quantum);
-
-            // status visível (algoritmo carregado e quantum)
             ui.setAlgoritmoStatus(algoritmo, quantum);
 
             atualizarTabelaInicial();
             ui.getPainelGantt().clear();
 
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null,
-                    "Erro ao carregar configuração:\n" + e.getMessage(),
-                    "Erro", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, "Erro ao carregar: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
     }
 
     public void carregarExemploFIFO() {
         if (executando) {
-            JOptionPane.showMessageDialog(null, "Finalize a simulação atual antes de carregar um exemplo.");
+            JOptionPane.showMessageDialog(null, "Finalize a simulação atual antes.");
             return;
         }
 
         tarefas.clear();
-
-        // define algoritmo e quantum do exemplo
         this.algoritmo = "FIFO";
         this.quantum = 2;
-        this.alpha = 0; // Resetar alpha
+        this.alpha = 0;
 
-        tarefas.add(new Tarefa("t01", 0, 0, 5, 3));
-        tarefas.add(new Tarefa("t02", 1, 0, 3, 2));
-        tarefas.add(new Tarefa("t03", 2, 3, 6, 4));
-        tarefas.add(new Tarefa("t04", 3, 3, 2, 9));
-        tarefas.add(new Tarefa("t05", 4, 4, 3, 1));
+        // MODIFICADO: Exemplo agora usa cores HEX
+        tarefas.add(new Tarefa("t01", "E74C3C", 0, 5, 3)); // Vermelho
+        tarefas.add(new Tarefa("t02", "3498DB", 1, 3, 2)); // Azul
+        tarefas.add(new Tarefa("t03", "27AE60", 3, 6, 4)); // Verde
+        tarefas.add(new Tarefa("t04", "F1C40F", 3, 2, 9)); // Amarelo
+        tarefas.add(new Tarefa("t05", "9B59B6", 4, 3, 1)); // Roxo
 
-
-        // sincroniza os campos visuais
         ui.setAlgoritmoNaUI(this.algoritmo);
         ui.setQuantumNaUI(this.quantum);
         ui.setAlgoritmoStatus(this.algoritmo, this.quantum);
 
-
-        // limpa o Gantt para novo cenário
         ui.getPainelGantt().clear();
-
-        // preenche a tabela com o snapshot "apenasTarefas"
         atualizarTabelaInicial();
 
-        JOptionPane.showMessageDialog(null, "Exemplo FIFO carregado com sucesso!\nQuantum: " + this.quantum + "\nTarefas: " + this.tarefas.size());
+        JOptionPane.showMessageDialog(null, "Exemplo FIFO carregado! (Cores Hex)");
     }
 
     public void iniciarSimulacao(String algoritmoUI, int quantumUI) {
         if(executando) return;
 
-        // Se carregou do arquivo (e não limpou), usa as vars da classe.
-        // Se o usuário mudou na combo box, usa da UI.
         String algoritmoUsado = (algoritmo != null && !algoritmo.isEmpty()) ? algoritmo : algoritmoUI;
         int quantumUsado = (quantum != 0) ? quantum : quantumUI;
 
-        // NOVO: Passando alpha para o construtor do SO
         sistema = new SistemaOperacional(tarefas, algoritmoUsado, quantumUsado, alpha, 1);
-
         executando = true;
         ui.setEstadoSO(true);
 
@@ -165,20 +143,15 @@ public class SimuladorUIControlador {
 
     public void finalizarSimulacao(){
         if(!executando) return;
-
         relogio.resetar();
         sistema = null;
         executando = false;
         ui.setEstadoSO(false);
         ui.clearAlgoritmoStatus();
-
         ui.getPainelGantt().clear();
         atualizarTabela();
     }
 
-    // ---------------------------------------------------------
-    // Modos de execução
-    // ---------------------------------------------------------
     public void executarTick() {
         if (sistema == null) return;
         sistema.criarTarefas();
@@ -201,9 +174,6 @@ public class SimuladorUIControlador {
         atualizarUI();
     }
 
-    // ---------------------------------------------------------
-    // Atualização da interface
-    // ---------------------------------------------------------
     private void atualizarUI() {
         if (sistema == null) return;
         ArrayList<TCB> lista = sistema.getListaTCBs();
@@ -220,7 +190,6 @@ public class SimuladorUIControlador {
             dados[i][1] = t.getTarefa().getInicio();
             dados[i][2] = t.getTarefa().getDuracaoTotal();
 
-            // NOVO: Exibe prioridade dinâmica se houver envelhecimento
             if (alpha > 0) {
                 dados[i][3] = t.getPrioridadeDinamica() + " (" + t.getTarefa().getPrioridade() + ")";
             } else {
@@ -247,41 +216,19 @@ public class SimuladorUIControlador {
         ui.atualizarTabela(dados);
     }
 
-    // ---------------------------------------------------------
-    // Exportação do gráfico de Gantt
-    // ---------------------------------------------------------
     public void exportarGanttComoImagem() {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Salvar gráfico de Gantt como PNG");
         chooser.setFileFilter(new FileNameExtensionFilter("Imagem PNG (*.png)", "png"));
         chooser.setAcceptAllFileFilterUsed(false);
-
-        // nome sugerido
         chooser.setSelectedFile(new File("gantt_resultado.png"));
-
         int res = chooser.showSaveDialog(null);
         if (res != JFileChooser.APPROVE_OPTION) return;
-
         File destino = chooser.getSelectedFile();
-
-        // garante extensão .png
         String name = destino.getName().toLowerCase();
         if (!name.endsWith(".png")) {
             destino = new File(destino.getParentFile(), destino.getName() + ".png");
         }
-
-        // confirma overwrite
-        if (destino.exists()) {
-            int op = JOptionPane.showConfirmDialog(
-                    null,
-                    "O arquivo já existe.\nDeseja sobrescrever?\n\n" + destino.getAbsolutePath(),
-                    "Confirmar sobrescrita",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-            );
-            if (op != JOptionPane.YES_OPTION) return;
-        }
-
         ui.getPainelGantt().exportarComoPNG(destino);
     }
 }

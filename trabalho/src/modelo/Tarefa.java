@@ -1,27 +1,21 @@
 package modelo;
 
-import java.util.regex.Pattern;
-
-/*
-    Dados fixos de uma tarefa:
-    id; cor; ingresso; duracao; prioridade; lista_eventos
- */
-
 public class Tarefa {
     private String id;
-    private int cor;
+    private String corHex; // MODIFICADO: Agora armazena o código Hex (ex: "FF0000")
     private int inicio;
     private int duracaoTotal;
     private int prioridade;
-    // Fica pendente para Defesa B a implementacao da lista de eventos
 
-    public Tarefa (String id, int cor, int inicio, int duracaoTotal, int prioridade){
+    // Construtor atualizado
+    public Tarefa (String id, String corHex, int inicio, int duracaoTotal, int prioridade){
         if (id == null || id.isBlank()){
             throw new IllegalArgumentException("id Tarefa não pode ser vazio");
         }
         this.id = id.trim();
 
-        this.cor = cor;
+        // Armazena a cor, garantindo que não seja nula (padrão cinza se vazio)
+        this.corHex = (corHex != null && !corHex.isBlank()) ? corHex.trim() : "CCCCCC";
 
         if(inicio < 0){
             throw new IllegalArgumentException("Instante de chegada negativo");
@@ -40,15 +34,16 @@ public class Tarefa {
     }
 
     public String resumo(){
-        return "%s [chegada=%d, duracao=%d, prioridade=%d]".formatted(id, inicio, duracaoTotal, prioridade);
+        return "%s [chegada=%d, duracao=%d, prioridade=%d, cor=#%s]".formatted(id, inicio, duracaoTotal, prioridade, corHex);
     }
 
     public String getId(){
         return id;
     }
 
-    public int getCor(){
-        return cor;
+    // Getter modificado
+    public String getCorHex(){
+        return corHex;
     }
 
     public int getInicio(){

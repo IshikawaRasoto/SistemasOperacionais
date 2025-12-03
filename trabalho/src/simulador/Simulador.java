@@ -24,10 +24,10 @@ public class Simulador {
     private void carregarTarefasDoArquivoDeConfiguracao(){
 
         //tarefasDoArquivoDeConfiguracao = leitor.lerTarefas();
-        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t01", 0,0,5,3));
-        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t02", 1,0,3,2));
-        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t03", 2,2,6,4));
-        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t04", 3,4,2,9));
+        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t01", "E74C3C", 0, 5, 3)); // Vermelho
+        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t02", "3498DB", 0, 3, 2)); // Azul
+        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t03", "27AE60", 2, 6, 4)); // Verde
+        tarefasDoArquivoDeConfiguracao.add(new Tarefa("t04", "F1C40F", 4, 2, 9)); // Amarelo
 
     }
 
