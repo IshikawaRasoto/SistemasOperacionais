@@ -99,7 +99,7 @@ public class SimuladorUIControlador {
                         parseAndAddEvento(tarefa, token);
                     }
                 }
-
+                Terminal.println(tarefa.resumo());
                 tarefas.add(tarefa);
             }
 
@@ -121,6 +121,16 @@ public class SimuladorUIControlador {
             JOptionPane.showMessageDialog(null, "Erro ao carregar: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
+
+        // --- DEBUG: Imprimir eventos carregados ---
+        System.out.println("--- DEBUG: TAREFAS CARREGADAS ---");
+        for(Tarefa t : tarefas) {
+            System.out.println("Tarefa: " + t.getId() + " | Eventos: " + t.getEventos().size());
+            for(modelo.Evento e : t.getEventos()) {
+                System.out.println("   -> " + e.toString());
+            }
+        }
+        System.out.println("---------------------------------");
     }
 
     private void parseAndAddEvento(Tarefa tarefa, String token) {
@@ -229,6 +239,7 @@ public class SimuladorUIControlador {
     public void executarTick() {
         if (sistema == null) return;
         sistema.criarTarefas();
+        sistema.gerenciarEventosEBloqueios();
         sistema.verificarTarefasProcessandoEEscalonar();
         atualizarUI();
         sistema.executarProcessos();
@@ -240,6 +251,7 @@ public class SimuladorUIControlador {
         if (sistema == null) return;
         while (!sistema.terminouTodasTarefas()) {
             sistema.criarTarefas();
+            sistema.gerenciarEventosEBloqueios();
             sistema.verificarTarefasProcessandoEEscalonar();
             atualizarUI();
             sistema.executarProcessos();

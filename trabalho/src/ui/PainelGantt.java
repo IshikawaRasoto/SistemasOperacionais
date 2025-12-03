@@ -64,6 +64,7 @@ public class PainelGantt extends JPanel {
             if (achada != null) {
                 if (achada.getEstadoTarefa() == EstadoTarefa.EXECUTANDO) estadoTick = 2;
                 else if (achada.getEstadoTarefa() == EstadoTarefa.PRONTA) estadoTick = 1;
+                else if (achada.getEstadoTarefa() == EstadoTarefa.BLOQUEADA) estadoTick = 3;
             }
 
             if (linha.size() == tickDoSO) linha.add(estadoTick);
@@ -130,9 +131,12 @@ public class PainelGantt extends JPanel {
                 if (estado == 2) {
                     Color cor = coresTarefas.getOrDefault(id, Color.GRAY);
                     g2.setColor(cor);
-                } else { // 1 = PRONTA
+                } else if (estado == 1) { // 1 = PRONTA
                     g2.setColor(new Color(180, 180, 180));
+                } else if (estado == 3) { // 3 = BLOQUEADA (NOVO)
+                    g2.setColor(Color.BLACK); // Ou Color.BLACK
                 }
+
                 g2.fillRect(x, y, bw, bh);
                 g2.setColor(Color.BLACK);
                 g2.drawRect(x, y, bw, bh);

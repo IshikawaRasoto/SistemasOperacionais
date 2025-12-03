@@ -2,6 +2,8 @@ package modelo;
 
 import simulador.Relogio;
 
+import java.util.List;
+
 public class TCB {
     public Tarefa tarefa;
     private EstadoTarefa estadoTarefa;
@@ -12,9 +14,8 @@ public class TCB {
     private int tickTermino = -1;
     private int inicioFatiaAtual = -1;
     private int esperaAcumulada = 0;
-
-    // Prioridade dinâmica para o algoritmo de envelhecimento
     private int prioridadeDinamica;
+    private int tempoRestanteBloqueioIO = 0; // Contador regressivo para I/O
 
     private final Relogio relogio = Relogio.getInstancia();
 
@@ -26,6 +27,55 @@ public class TCB {
         this.tickEntradaFilaPronta = relogio.getTickAtual();
         // Inicializa com a prioridade estática (original)
         this.prioridadeDinamica = tarefa.getPrioridade();
+    }
+
+    // Calcula quanto tempo "útil" a tarefa já rodou
+    public int getTempoExecutado() {
+        return tarefa.getDuracaoTotal() - restante;
+    }
+
+    // Verifica se existe algum evento agendado EXATAMENTE para este instante de execução
+    public Evento verificarEventoAtual() {
+        int tempoAtualExecucao = getTempoExecutado();
+        List<Evento> eventos = tarefa.getEventos();
+
+        if (eventos == null || eventos.isEmpty()) return null;
+
+        // DEBUG: Mostra que o TCB está checando eventos
+        // System.out.println("DEBUG CHECK: Tarefa " + tarefa.getId() + " TempoExec: " + tempoAtualExecucao);
+
+        for (Evento e : eventos) {
+            if (e.getTempoOcorrencia() == tempoAtualExecucao) {
+                System.out.println("!!! MATCH !!! Evento disparado na tarefa " + tarefa.getId() + " no tempo " + tempoAtualExecucao);
+                return e;
+            }
+        }
+        return null;
+    }
+
+    public void bloquearPorIO(int duracao) {
+        this.estadoTarefa = EstadoTarefa.BLOQUEADA;
+        this.tempoRestanteBloqueioIO = duracao;
+    }
+
+    public void bloquearPorMutex() {
+        this.estadoTarefa = EstadoTarefa.BLOQUEADA;
+    }
+
+    public void desbloquear() {
+        this.estadoTarefa = EstadoTarefa.PRONTA;
+        this.tickEntradaFilaPronta = relogio.getTickAtual(); // Reseta espera para evitar starvation imediato
+        this.tempoRestanteBloqueioIO = 0;
+    }
+
+    public void decrementarTempoBloqueio() {
+        if (tempoRestanteBloqueioIO > 0) {
+            tempoRestanteBloqueioIO--;
+        }
+    }
+
+    public boolean acabouTempoBloqueio() {
+        return tempoRestanteBloqueioIO <= 0;
     }
 
     public void entrarFilaPronta(){
@@ -48,6 +98,9 @@ public class TCB {
         if(this.estadoTarefa == EstadoTarefa.FINALIZADA){
             return;
         }
+        if (this.estadoTarefa != EstadoTarefa.BLOQUEADA) {
+            this.estadoTarefa = EstadoTarefa.PRONTA;
+        }
         this.estadoTarefa = EstadoTarefa.PRONTA;
         this.inicioFatiaAtual = relogio.getTickAtual();
         this.esperaAcumulada = relogio.getTickAtual();
@@ -58,6 +111,7 @@ public class TCB {
         this.estadoTarefa = EstadoTarefa.BLOQUEADA;
         this.inicioFatiaAtual = relogio.getTickAtual();
     }
+
 
     public void executarTick(){
         if(this.restante > 0){
@@ -70,62 +124,22 @@ public class TCB {
         }
     }
 
-    // Método usado pelo SO para aplicar envelhecimento a quem está na fila
     public void envelhecer(int alpha) {
         this.prioridadeDinamica += alpha;
     }
 
     // --- Getters e Setters ---
-
-    public void setEstadoTarefa(EstadoTarefa estadoTarefa) {
-        this.estadoTarefa = estadoTarefa;
-    }
-
-    public void setRestante(int restante) {
-        this.restante = restante;
-    }
-
-    public void setTickTermino(int tickTermino) {
-        this.tickTermino = tickTermino;
-    }
-
-    public Tarefa getTarefa() {
-        return tarefa;
-    }
-
-    public EstadoTarefa getEstadoTarefa() {
-        return estadoTarefa;
-    }
-
-    public int getRestante() {
-        return restante;
-    }
-
-    public int getQuantumUsado() {
-        return quantumUsado;
-    }
-
-    public int getTickEntradaFilaPronta() {
-        return tickEntradaFilaPronta;
-    }
-
-    public int getTickEntradaProcessador() {
-        return tickEntradaProcessador;
-    }
-
-    public int getTickTermino() {
-        return tickTermino;
-    }
-
-    public int getInicioFatiaAtual() {
-        return inicioFatiaAtual;
-    }
-
-    public int getEsperaAcumulada() {
-        return esperaAcumulada;
-    }
-
-    public int getPrioridadeDinamica() {
-        return prioridadeDinamica;
-    }
+    public void setEstadoTarefa(EstadoTarefa estadoTarefa) { this.estadoTarefa = estadoTarefa; }
+    public void setRestante(int restante) { this.restante = restante; }
+    public void setTickTermino(int tickTermino) { this.tickTermino = tickTermino; }
+    public Tarefa getTarefa() { return tarefa; }
+    public EstadoTarefa getEstadoTarefa() { return estadoTarefa; }
+    public int getRestante() { return restante; }
+    public int getQuantumUsado() { return quantumUsado; }
+    public int getTickEntradaFilaPronta() { return tickEntradaFilaPronta; }
+    public int getTickEntradaProcessador() { return tickEntradaProcessador; }
+    public int getTickTermino() { return tickTermino; }
+    public int getInicioFatiaAtual() { return inicioFatiaAtual; }
+    public int getEsperaAcumulada() { return esperaAcumulada; }
+    public int getPrioridadeDinamica() { return prioridadeDinamica; }
 }
