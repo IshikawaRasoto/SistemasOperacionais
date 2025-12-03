@@ -2,6 +2,8 @@ package ui;
 
 import modelo.Tarefa;
 import modelo.TCB;
+import modelo.Evento;
+import modelo.TipoEvento;
 import simulador.Relogio;
 import sistemaoperacional.SistemaOperacional;
 
@@ -64,19 +66,40 @@ public class SimuladorUIControlador {
             while ((linhaTarefa = br.readLine()) != null) {
                 if (linhaTarefa.isBlank()) continue;
                 String[] partes = linhaTarefa.split(";");
+
+                // O tamanho mínimo continua sendo 5
                 if (partes.length < 5)
                     throw new IOException("Formato inválido: " + linhaTarefa);
 
                 String id = partes[0].trim();
-
-                // MODIFICADO: Lê a cor como String (Hex) diretamente
                 String corHex = partes[1].trim();
-
                 int inicio = Integer.parseInt(partes[2].trim());
                 int duracao = Integer.parseInt(partes[3].trim());
                 int prioridade = Integer.parseInt(partes[4].trim());
 
                 Tarefa tarefa = new Tarefa(id, corHex, inicio, duracao, prioridade);
+
+                // --- NOVA LÓGICA DE PARSE DE EVENTOS ---
+                // Se houver mais partes na linha, são os eventos (índice 5 em diante)
+                if (partes.length > 5) {
+                    // O requisito diz "lista_eventos", assumindo que podem vir separados por espaço ou vírgula
+                    // mas o split inicial foi por ';'. Se a lista inteira estiver no último campo:
+                    // Exemplo: ...; prioridade; ML01: 02, IO: 05-02
+
+                    // Vamos pegar tudo que sobrou
+                    String eventosString = partes[5].trim();
+
+                    // Separar múltiplos eventos (assumindo separação por vírgula dentro do campo de eventos)
+                    String[] tokensEventos = eventosString.split(",");
+
+                    for (String token : tokensEventos) {
+                        token = token.trim();
+                        if (token.isEmpty()) continue;
+
+                        parseAndAddEvento(tarefa, token);
+                    }
+                }
+
                 tarefas.add(tarefa);
             }
 
@@ -97,6 +120,57 @@ public class SimuladorUIControlador {
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "Erro ao carregar: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
+        }
+    }
+
+    private void parseAndAddEvento(Tarefa tarefa, String token) {
+        // Formatos esperados:
+        // IO: 10: xx-yy (Requisito 3.2 - PDF pag 5) -> "10: 05-02"
+        // Mutex Lock: MLxx: 00 (Requisito 2.2 - PDF pag 5) -> "ML01: 02"
+        // Mutex Unlock: MUxx: 00 (Requisito 2.3 - PDF pag 5) -> "MU01: 05"
+
+        // Normalizar para facilitar
+        token = token.toUpperCase(); // "ML01: 02"
+
+        try {
+            if (token.startsWith("IO")) {
+                // Formato: IO: xx-yy ou 10: xx-yy (O PDF usa '10' como typo de IO provavelmente, ou vice versa, vamos suportar "IO")
+                // Vamos assumir separador ":"
+                String[] splitIO = token.split(":");
+                // splitIO[0] = "IO"
+                // splitIO[1] = " xx-yy"
+
+                if (splitIO.length > 1) {
+                    String[] tempos = splitIO[1].trim().split("-");
+                    int tempoInicio = Integer.parseInt(tempos[0].trim());
+                    int duracao = Integer.parseInt(tempos[1].trim());
+
+                    tarefa.adicionarEvento(new Evento(TipoEvento.IO, tempoInicio, duracao));
+                }
+
+            } else if (token.startsWith("ML")) {
+                // Formato: MLxx: 00
+                String[] splitMutex = token.split(":");
+                // splitMutex[0] = "ML01" -> precisamos extrair o 01
+                String idRecursoStr = splitMutex[0].replace("ML", "").trim();
+                int idRecurso = Integer.parseInt(idRecursoStr);
+
+                int tempo = Integer.parseInt(splitMutex[1].trim());
+
+                tarefa.adicionarEvento(new Evento(TipoEvento.MUTEX_SOLICITACAO, tempo, idRecurso, true));
+
+            } else if (token.startsWith("MU")) {
+                // Formato: MUxx: 00
+                String[] splitMutex = token.split(":");
+                String idRecursoStr = splitMutex[0].replace("MU", "").trim();
+                int idRecurso = Integer.parseInt(idRecursoStr);
+
+                int tempo = Integer.parseInt(splitMutex[1].trim());
+
+                tarefa.adicionarEvento(new Evento(TipoEvento.MUTEX_LIBERACAO, tempo, idRecurso, true));
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao parsear evento: " + token + " -> " + e.getMessage());
         }
     }
 

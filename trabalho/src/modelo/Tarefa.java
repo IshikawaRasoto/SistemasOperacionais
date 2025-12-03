@@ -1,11 +1,15 @@
 package modelo;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Tarefa {
     private String id;
     private String corHex; // MODIFICADO: Agora armazena o código Hex (ex: "FF0000")
     private int inicio;
     private int duracaoTotal;
     private int prioridade;
+    private List<Evento> eventos;
 
     // Construtor atualizado
     public Tarefa (String id, String corHex, int inicio, int duracaoTotal, int prioridade){
@@ -31,10 +35,20 @@ public class Tarefa {
             throw new IllegalArgumentException("Prioridade deve ser positiva");
         }
         this.prioridade = prioridade;
+        this.eventos = new ArrayList<>();
+    }
+
+    public void adicionarEvento(Evento e) {
+        this.eventos.add(e);
+    }
+
+    public List<Evento> getEventos() {
+        return eventos;
     }
 
     public String resumo(){
-        return "%s [chegada=%d, duracao=%d, prioridade=%d, cor=#%s]".formatted(id, inicio, duracaoTotal, prioridade, corHex);
+        return "%s [chegada=%d, duracao=%d, prio=%d, cor=#%s, eventos=%d]"
+                .formatted(id, inicio, duracaoTotal, prioridade, corHex, eventos.size());
     }
 
     public String getId(){
