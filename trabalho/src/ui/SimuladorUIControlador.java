@@ -44,7 +44,6 @@ public class SimuladorUIControlador {
                 throw new IOException("Arquivo de configuração vazio.");
             }
 
-            // Primeira linha -> algoritmo; quantum [;alpha]
             String[] config = linha.split(";");
             if (config.length < 2)
                 throw new IOException("Primeira linha deve conter algoritmo e quantum.");
@@ -60,14 +59,11 @@ public class SimuladorUIControlador {
                 }
             }
 
-            // Linhas seguintes -> tarefas
-            // Formato: id; corHex; ingresso; duracao; prioridade
             String linhaTarefa;
             while ((linhaTarefa = br.readLine()) != null) {
                 if (linhaTarefa.isBlank()) continue;
-                String[] partes = linhaTarefa.split(";");
 
-                // O tamanho mínimo continua sendo 5
+                String[] partes = linhaTarefa.split(";");
                 if (partes.length < 5)
                     throw new IOException("Formato inválido: " + linhaTarefa);
 
@@ -79,26 +75,14 @@ public class SimuladorUIControlador {
 
                 Tarefa tarefa = new Tarefa(id, corHex, inicio, duracao, prioridade);
 
-                // --- NOVA LÓGICA DE PARSE DE EVENTOS ---
-                // Se houver mais partes na linha, são os eventos (índice 5 em diante)
                 if (partes.length > 5) {
-                    // O requisito diz "lista_eventos", assumindo que podem vir separados por espaço ou vírgula
-                    // mas o split inicial foi por ';'. Se a lista inteira estiver no último campo:
-                    // Exemplo: ...; prioridade; ML01: 02, IO: 05-02
-
-                    // Vamos pegar tudo que sobrou
-                    String eventosString = partes[5].trim();
-
-                    // Separar múltiplos eventos (assumindo separação por vírgula dentro do campo de eventos)
-                    String[] tokensEventos = eventosString.split(",");
-
-                    for (String token : tokensEventos) {
-                        token = token.trim();
+                    for (int i = 5; i < partes.length; i++) {
+                        String token = partes[i].trim();
                         if (token.isEmpty()) continue;
-
                         parseAndAddEvento(tarefa, token);
                     }
                 }
+
                 Terminal.println(tarefa.resumo());
                 tarefas.add(tarefa);
             }
@@ -122,16 +106,16 @@ public class SimuladorUIControlador {
             e.printStackTrace();
         }
 
-        // --- DEBUG: Imprimir eventos carregados ---
         System.out.println("--- DEBUG: TAREFAS CARREGADAS ---");
-        for(Tarefa t : tarefas) {
+        for (Tarefa t : tarefas) {
             System.out.println("Tarefa: " + t.getId() + " | Eventos: " + t.getEventos().size());
-            for(modelo.Evento e : t.getEventos()) {
+            for (modelo.Evento e : t.getEventos()) {
                 System.out.println("   -> " + e.toString());
             }
         }
         System.out.println("---------------------------------");
     }
+
 
     private void parseAndAddEvento(Tarefa tarefa, String token) {
         // Formatos esperados:

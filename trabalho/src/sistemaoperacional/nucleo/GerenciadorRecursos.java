@@ -36,7 +36,7 @@ public class GerenciadorRecursos {
         // Segurança: só o dono pode liberar
         if (donoAtual != solicitante) {
             System.err.println("ERRO: Tarefa " + solicitante.getTarefa().getId() +
-                    " tentou liberar Mutex " + idMutex + " sem ser o dono.");
+                    " tentou liberar Mutex " + idMutex + " sem ser o dono. Dono: " + donoAtual);
             return null;
         }
 
