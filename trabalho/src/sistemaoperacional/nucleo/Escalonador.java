@@ -109,9 +109,9 @@ public class Escalonador {
             case SRTF:
                 return escalonarSRTF(readyQueue);
             case PRIORIDADE_PREEMPTIVO:
-                return escalonarPrioridade(readyQueue, false);
+                return escalonarPrioridadeEstatica(readyQueue);
             case PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO:
-                return escalonarPrioridade(readyQueue, true);
+                return escalonarPrioridadeDinamicaEnvelhecimento(readyQueue);
             default:
                 return null;
         }
@@ -131,14 +131,30 @@ public class Escalonador {
         return melhor;
     }
 
-    private TCB escalonarPrioridade(Queue<TCB> readyQueue, boolean usarDinamica) {
+    private TCB escalonarPrioridadeEstatica(Queue<TCB> readyQueue) {
         TCB melhor = null;
         for(TCB t : readyQueue) {
             if(melhor == null) {
                 melhor = t;
             } else {
-                int pMelhor = usarDinamica ? melhor.getPrioridadeDinamica() : melhor.getTarefa().getPrioridade();
-                int pAtual = usarDinamica ? t.getPrioridadeDinamica() : t.getTarefa().getPrioridade();
+                int pMelhor = melhor.getTarefa().getPrioridade();
+                int pAtual = t.getTarefa().getPrioridade();
+
+                if (pAtual > pMelhor) melhor = t;
+            }
+        }
+        if (melhor != null) readyQueue.remove(melhor);
+        return melhor;
+    }
+
+    private TCB escalonarPrioridadeDinamicaEnvelhecimento(Queue<TCB> readyQueue) {
+        TCB melhor = null;
+        for(TCB t : readyQueue) {
+            if(melhor == null) {
+                melhor = t;
+            } else {
+                int pMelhor = melhor.getPrioridadeDinamica();
+                int pAtual = t.getPrioridadeDinamica();
 
                 if (pAtual > pMelhor) melhor = t;
             }

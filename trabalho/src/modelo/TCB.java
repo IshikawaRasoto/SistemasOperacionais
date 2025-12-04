@@ -1,8 +1,9 @@
 package modelo;
 
 import simulador.Relogio;
+import ui.Terminal;
 
-import java.util.List;
+import java.util.*;
 
 public class TCB {
     public Tarefa tarefa;
@@ -15,7 +16,9 @@ public class TCB {
     private int inicioFatiaAtual = -1;
     private int esperaAcumulada = 0;
     private int prioridadeDinamica;
-    private int tempoRestanteBloqueioIO = 0; // Contador regressivo para I/O
+    private boolean bloqueadoPorMutex = false;
+    private Map<Evento, Integer> eventosIOEmAndamento;
+    private Set<Evento> eventosConcluidos;
 
     private final Relogio relogio = Relogio.getInstancia();
 
@@ -27,6 +30,7 @@ public class TCB {
         this.tickEntradaFilaPronta = relogio.getTickAtual();
         // Inicializa com a prioridade estática (original)
         this.prioridadeDinamica = tarefa.getPrioridade();
+        this.eventosIOEmAndamento = new HashMap<>();
     }
 
     // Calcula quanto tempo "útil" a tarefa já rodou
@@ -35,47 +39,94 @@ public class TCB {
     }
 
     // Verifica se existe algum evento agendado EXATAMENTE para este instante de execução
-    public Evento verificarEventoAtual() {
+    public List<Evento> verificarEventosAtuais() {
         int tempoAtualExecucao = getTempoExecutado();
-        List<Evento> eventos = tarefa.getEventos();
+        List<Evento> eventosDaTarefa = tarefa.getEventos();
+        List<Evento> eventosDoTick = new ArrayList<>();
 
-        if (eventos == null || eventos.isEmpty()) return null;
+        if (eventosDaTarefa == null || eventosDaTarefa.isEmpty()){
+            Terminal.println("DEBUG TCB: Tarefa " + tarefa.getId() + " tem " + eventosDoTick.size() + " evento(s) neste tick.");
+            return eventosDoTick;
+        }
 
-        // DEBUG: Mostra que o TCB está checando eventos
-        // System.out.println("DEBUG CHECK: Tarefa " + tarefa.getId() + " TempoExec: " + tempoAtualExecucao);
-
-        for (Evento e : eventos) {
+        for (Evento e : eventosDaTarefa) {
+            // Verifica se o evento ocorre NESTE tick exato
             if (e.getTempoOcorrencia() == tempoAtualExecucao) {
-                System.out.println("!!! MATCH !!! Evento disparado na tarefa " + tarefa.getId() + " no tempo " + tempoAtualExecucao);
-                return e;
+                // (Opcional) Verifique se ele já não está em andamento no mapa de IO para evitar duplicidade
+                if (eventosIOEmAndamento != null && !eventosIOEmAndamento.containsKey(e)) {
+                    eventosDoTick.add(e);
+                } else if (eventosIOEmAndamento == null) {
+                    // Fallback caso não esteja usando a solução anterior do mapa
+                    eventosDoTick.add(e);
+                }
             }
         }
-        return null;
+        Terminal.println("DEBUG TCB: Tarefa " + tarefa.getId() + " tem " + eventosDoTick.size() + " evento(s) neste tick.");
+        return eventosDoTick;
     }
 
-    public void bloquearPorIO(int duracao) {
+    public void bloquearPorIO(Evento evento) {
         this.estadoTarefa = EstadoTarefa.BLOQUEADA;
-        this.tempoRestanteBloqueioIO = duracao;
+        // Salva o evento e sua duração no mapa
+        this.eventosIOEmAndamento.put(evento, evento.getDuracao());
     }
 
     public void bloquearPorMutex() {
         this.estadoTarefa = EstadoTarefa.BLOQUEADA;
+        this.bloqueadoPorMutex = true; // Marca que o Mutex está segurando a tarefa
+    }
+
+    public void receberMutex() {
+        this.bloqueadoPorMutex = false;
+        verificarSePodeDesbloquear();
+    }
+
+    public void finalizarIO() {
+        // A lógica de remoção do mapa já está no processarTicksIO,
+        // mas precisamos checar se podemos mudar o estado global.
+        verificarSePodeDesbloquear();
     }
 
     public void desbloquear() {
-        this.estadoTarefa = EstadoTarefa.PRONTA;
-        this.tickEntradaFilaPronta = relogio.getTickAtual(); // Reseta espera para evitar starvation imediato
-        this.tempoRestanteBloqueioIO = 0;
+        verificarSePodeDesbloquear();
     }
 
-    public void decrementarTempoBloqueio() {
-        if (tempoRestanteBloqueioIO > 0) {
-            tempoRestanteBloqueioIO--;
+    private void verificarSePodeDesbloquear() {
+        // Só volta para PRONTA se NÃO tiver I/O pendente E NÃO estiver esperando Mutex
+        if (!temIOPendente() && !bloqueadoPorMutex) {
+            this.estadoTarefa = EstadoTarefa.PRONTA;
+            this.tickEntradaFilaPronta = Relogio.getInstancia().getTickAtual();
         }
     }
 
-    public boolean acabouTempoBloqueio() {
-        return tempoRestanteBloqueioIO <= 0;
+    public boolean processarTicksIO() {
+        if (eventosIOEmAndamento.isEmpty()) return false;
+
+        boolean algumIOFinalizou = false;
+        Iterator<Map.Entry<Evento, Integer>> iterator = eventosIOEmAndamento.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+            Map.Entry<Evento, Integer> entry = iterator.next();
+            int tempoRestante = entry.getValue();
+
+            if (tempoRestante > 0) {
+                // Decrementa o tempo deste I/O específico
+                entry.setValue(tempoRestante - 1);
+
+                // Verifica novamente após decrementar (caso fosse 1 e virou 0 neste tick)
+                if (entry.getValue() == 0) {
+                    iterator.remove(); // Remove do mapa de andamento
+                    algumIOFinalizou = true;
+                    System.out.println("DEBUG TCB: I/O do evento " + entry.getKey() + " finalizado na Tarefa " + tarefa.getId());
+                }
+            }
+        }
+
+        return algumIOFinalizou;
+    }
+
+    public boolean temIOPendente() {
+        return !eventosIOEmAndamento.isEmpty();
     }
 
     public void entrarFilaPronta(){

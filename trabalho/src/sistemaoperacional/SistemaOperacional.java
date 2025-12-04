@@ -30,8 +30,6 @@ public class SistemaOperacional {
     private Queue<TCB> listaTCBs;
     private Queue<TCB> listaProntos;
     private boolean houveInsercaoDeTarefas = false;
-
-    // NOVO: Gerenciador de Recursos
     private GerenciadorRecursos gerenciadorRecursos;
 
     public SistemaOperacional(ArrayList<Tarefa> tarefasParaCriar, String algoritmoEscalonador, int quantum, int alpha, int numeroDeNucleos) {
@@ -60,6 +58,8 @@ public class SistemaOperacional {
         // 1. Admitir novas tarefas
         criarTarefas();
 
+        processarEventosDeTarefasFinalizadas();
+
         // 2. Escalonador: Decide quem deve estar na CPU agora
         // (Se a CPU estava vazia, ele coloca a T01 aqui)
         verificarTarefasProcessandoEEscalonar();
@@ -80,45 +80,49 @@ public class SistemaOperacional {
         }
     }
 
+    private void processarEventosDeTarefasFinalizadas() {
+        for (CPU cpu : processador.getNucleos()) {
+            TCB tarefa = cpu.getTarefaAtual();
+            // Se a tarefa terminou neste último tick, processa seus eventos finais agora
+            if (tarefa != null && tarefa.getEstadoTarefa() == EstadoTarefa.FINALIZADA) {
+                Terminal.println("DEBUG: Verificando eventos finais para tarefa " + tarefa.getTarefa().getId());
+                verificarEProcessarEventosNaCPU(cpu, tarefa);
+            }
+        }
+    }
+
     public void gerenciarEventosEBloqueios() {
-        // --- PARTE 1: Desbloqueio de I/O ---
+        // --- PARTE 1: Desbloqueio de I/O (Mantido igual à sua versão corrigida) ---
         for (TCB tcb : listaTCBs) {
-            if (tcb.getEstadoTarefa() == EstadoTarefa.BLOQUEADA) {
-                if (!tcb.acabouTempoBloqueio()) {
-                    tcb.decrementarTempoBloqueio();
-                    if (tcb.acabouTempoBloqueio()) {
-                        tcb.desbloquear();
-                        listaProntos.add(tcb);
-                        Terminal.println("DEBUG: Tarefa " + tcb.getTarefa().getId() + " ACORDOU do I/O.");
-                    }
+            boolean algumIOFinalizou = tcb.processarTicksIO();
+            if (algumIOFinalizou) {
+                tcb.finalizarIO();
+                if (tcb.getEstadoTarefa() == EstadoTarefa.PRONTA && !listaProntos.contains(tcb)) {
+                    listaProntos.add(tcb);
+                    Terminal.println("DEBUG: Tarefa " + tcb.getTarefa().getId() + " desbloqueada (Fim de I/O e sem Mutex pendente).");
                 }
             }
         }
 
-        // --- PARTE 2: Disparo de Eventos ---
+        // --- PARTE 2: Disparo de Eventos (Refatorado) ---
         for (CPU cpu : processador.getNucleos()) {
             TCB tarefaExecutando = cpu.getTarefaAtual();
 
-            // DEBUG 1: Quem está na CPU?
-            if (tarefaExecutando == null) {
-                Terminal.println("DEBUG: CPU Ociosa neste tick.");
-            } else {
-                Terminal.println("DEBUG: CPU tem " + tarefaExecutando.getTarefa().getId() +
-                        " | Estado: " + tarefaExecutando.getEstadoTarefa() +
-                        " | TempoExec: " + tarefaExecutando.getTempoExecutado());
+            if (tarefaExecutando != null && tarefaExecutando.getEstadoTarefa() == EstadoTarefa.EXECUTANDO) {
+                verificarEProcessarEventosNaCPU(cpu, tarefaExecutando);
+            }
+        }
+    }
 
-                // Se a tarefa não estiver EXECUTANDO, algo está errado com o estado
-                if (tarefaExecutando.getEstadoTarefa() == EstadoTarefa.EXECUTANDO) {
-                    Evento evento = tarefaExecutando.verificarEventoAtual();
+    private void verificarEProcessarEventosNaCPU(CPU cpu, TCB tarefa) {
+        java.util.List<Evento> eventos = tarefa.verificarEventosAtuais();
 
-                    // DEBUG 2: Achou evento?
-                    if (evento != null) {
-                        Terminal.println("DEBUG: !!! EVENTO ENCONTRADO: " + evento);
-                        processarEvento(cpu, tarefaExecutando, evento);
-                    } else {
-                        Terminal.println("DEBUG: Nenhum evento para agora.");
-                    }
-                }
+        if (!eventos.isEmpty()) {
+            for (Evento evento : eventos) {
+                // Se a tarefa está FINALIZADA, ela só pode processar liberação de recursos (Mutex Unlock)
+                // Bloqueios (IO/Lock) em tarefa finalizada não fazem sentido e seriam ignorados naturalmente,
+                // mas a liberação é crítica.
+                processarEvento(cpu, tarefa, evento);
             }
         }
     }
@@ -129,10 +133,12 @@ public class SistemaOperacional {
         switch (evento.getTipo()) {
             case IO:
                 // Bloqueia a tarefa
-                tarefa.sairDoProcessador(); // Sai da CPU
-                cpu.finalizarProcesso();    // CPU fica ociosa
-                tarefa.bloquearPorIO(evento.getDuracao()); // Define tempo e estado BLOQUEADA
-                // Não adiciona na listaProntos (está bloqueada)
+                tarefa.sairDoProcessador();
+                cpu.finalizarProcesso();
+
+                // ALTERADO: Passa o objeto evento inteiro para o TCB registrar no mapa
+                tarefa.bloquearPorIO(evento);
+
                 Terminal.println("Tarefa " + tarefa.getTarefa().getId() + " bloqueada por I/O (" + evento.getDuracao() + " ticks)");
                 break;
 
@@ -141,7 +147,7 @@ public class SistemaOperacional {
                 if (!conseguiu) {
                     tarefa.sairDoProcessador();
                     cpu.finalizarProcesso();
-                    tarefa.bloquearPorMutex(); // Estado BLOQUEADA (sem tempo definido)
+                    tarefa.bloquearPorMutex();
                     Terminal.println("Tarefa " + tarefa.getTarefa().getId() + " bloqueada aguardando Mutex " + evento.getIdRecurso());
                 } else {
                     Terminal.println("Tarefa " + tarefa.getTarefa().getId() + " adquiriu Mutex " + evento.getIdRecurso());
@@ -150,15 +156,17 @@ public class SistemaOperacional {
 
             case MUTEX_LIBERACAO:
                 TCB desbloqueada = gerenciadorRecursos.liberarMutex(evento.getIdRecurso(), tarefa);
-                Terminal.println("Tarefa " + tarefa.getTarefa().getId() + " liberou Mutex " + evento.getIdRecurso());
-
                 if (desbloqueada != null) {
-                    desbloqueada.desbloquear(); // Muda estado para PRONTA
-                    listaProntos.add(desbloqueada); // Volta para o escalonador
-                    Terminal.println("Tarefa " + desbloqueada.getTarefa().getId() + " foi desbloqueada (ganhou o Mutex).");
+                    // Avisa o TCB que ele ganhou o Mutex
+                    desbloqueada.receberMutex();
 
-                    // Opcional: Se a política for preempção imediata ao liberar recurso, poderia chamar o escalonador aqui.
-                    // Por padrão, seguimos o fluxo normal (tick termina, escalonador decide na próxima etapa).
+                    // Se isso foi suficiente para desbloqueá-la (sem IO pendente), põe na fila
+                    if (desbloqueada.getEstadoTarefa() == EstadoTarefa.PRONTA) {
+                        listaProntos.add(desbloqueada);
+                        Terminal.println("Tarefa " + desbloqueada.getTarefa().getId() + " pronta para executar.");
+                    } else {
+                        Terminal.println("Tarefa " + desbloqueada.getTarefa().getId() + " ganhou Mutex, mas continua bloqueada por I/O.");
+                    }
                 }
                 break;
         }
@@ -201,6 +209,21 @@ public class SistemaOperacional {
             if (tarefaAtual == null) {
                 causa = CausaEscalonamento.CPU_OCIOSA;
             } else if (tarefaAtual.getEstadoTarefa() == EstadoTarefa.FINALIZADA) {
+                // A tarefa acabou. Antes de o escalonador removê-la, verificamos se
+                // há algum evento de "despedida" (ex: liberar Mutex no último tick).
+
+                Terminal.println("DEBUG: Tarefa " + tarefaAtual.getTarefa().getId() + " finalizou. Verificando eventos finais...");
+                java.util.List<Evento> eventosFinais = tarefaAtual.verificarEventosAtuais();
+
+                for (Evento e : eventosFinais) {
+                    // Só processamos liberações de recurso ou logs.
+                    // Bloqueios (IO/ML) não fazem sentido pois ela já acabou.
+                    if (e.getTipo() == TipoEvento.MUTEX_LIBERACAO) {
+                        processarEvento(cpu, tarefaAtual, e);
+                    }
+                }
+                // ---------------------
+
                 causa = CausaEscalonamento.TAREFA_FINALIZADA;
             } else if (quantum > 0 && (relogio.getTickAtual() - tarefaAtual.getInicioFatiaAtual()) >= quantum) {
                 causa = CausaEscalonamento.QUANTUM_EXPIRADO;
