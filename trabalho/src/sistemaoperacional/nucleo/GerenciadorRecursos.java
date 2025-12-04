@@ -7,7 +7,6 @@ public class GerenciadorRecursos {
 
     // Mapa: ID do Mutex -> TCB que detém o recurso (Dono)
     private final Map<Integer, TCB> mutexDonos;
-
     // Mapa: ID do Mutex -> Fila de TCBs esperando pelo recurso
     private final Map<Integer, Queue<TCB>> mutexFilasEspera;
 

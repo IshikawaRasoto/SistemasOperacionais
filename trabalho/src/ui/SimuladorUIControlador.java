@@ -191,7 +191,7 @@ public class SimuladorUIControlador {
         }
 
         tarefas.clear();
-        this.algoritmo = "FIFO";
+        this.algoritmo = "RR";
         this.quantum = 2;
         this.alpha = 0;
 
@@ -239,11 +239,11 @@ public class SimuladorUIControlador {
     public void executarTick() {
         if (sistema == null) return;
         sistema.criarTarefas();
-        sistema.gerenciarEventosEBloqueios();
         sistema.verificarTarefasProcessandoEEscalonar();
         atualizarUI();
         sistema.executarProcessos();
         atualizarTabela();
+        sistema.gerenciarEventosEBloqueios();
         relogio.tick();
     }
 

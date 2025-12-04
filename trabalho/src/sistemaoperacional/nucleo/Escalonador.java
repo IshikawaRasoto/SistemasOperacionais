@@ -27,7 +27,7 @@ public class Escalonador {
         }
 
         switch (algoritmoEscolhido) {
-            case FIFO:
+            case RR:
                 if (causa == CausaEscalonamento.QUANTUM_EXPIRADO) return true;
                 return false;
 
@@ -82,8 +82,8 @@ public class Escalonador {
     private void defineAlgoritmoEscalonador(String nomeEscalonador){
         String nome = nomeEscalonador.toUpperCase().trim();
 
-        if (nome.equals("FIFO") || nome.equals("ROUND_ROBIN")){
-            algoritmoEscolhido = AlgoritmosEscalonamento.FIFO;
+        if (nome.equals("FIFO") || nome.equals("RR")){
+            algoritmoEscolhido = AlgoritmosEscalonamento.RR;
         }
         else if (nome.equals("SRTF")){
             algoritmoEscolhido = AlgoritmosEscalonamento.SRTF;
@@ -96,7 +96,7 @@ public class Escalonador {
         }
         else{
             System.out.println("Algoritmo desconhecido ("+nome+"). Usando FIFO.");
-            algoritmoEscolhido = AlgoritmosEscalonamento.FIFO;
+            algoritmoEscolhido = AlgoritmosEscalonamento.RR;
         }
     }
 
@@ -104,8 +104,8 @@ public class Escalonador {
         if (readyQueue.isEmpty()) return null;
 
         switch(algoritmoEscolhido) {
-            case FIFO:
-                return readyQueue.poll();
+            case RR:
+                return escalonarRoundRobin(readyQueue);
             case SRTF:
                 return escalonarSRTF(readyQueue);
             case PRIORIDADE_PREEMPTIVO:
@@ -115,6 +115,11 @@ public class Escalonador {
             default:
                 return null;
         }
+    }
+
+    private TCB escalonarRoundRobin(Queue<TCB> readyQueue) {
+        if (readyQueue.isEmpty()) return null;
+        return readyQueue.poll();
     }
 
     private TCB escalonarSRTF(Queue<TCB> readyQueue) {

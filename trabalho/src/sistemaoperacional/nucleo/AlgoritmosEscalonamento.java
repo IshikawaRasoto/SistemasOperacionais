@@ -1,7 +1,7 @@
 package sistemaoperacional.nucleo;
 
 public enum AlgoritmosEscalonamento {
-    FIFO,
+    RR,
     SRTF,
     PRIORIDADE_PREEMPTIVO,
     PRIORIDADE_PREEMPTIVO_ENVELHECIMENTO
